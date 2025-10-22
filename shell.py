@@ -2,7 +2,7 @@ import basisk
 
 while True:
     text = input("basisk> ")
-    result, error = basisk.ru1n(text)
+    result, error = basisk.run("<stdin>", text)
 
-    if error: print(error.as_string)
+    if error: print(error.as_string())
     else: print(result)
