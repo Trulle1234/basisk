@@ -1,14 +1,18 @@
+###########
+# IMPORTS #
+###########
+
 import string_with_arrows
 
-############################
-# CONSTANTS
-############################
+#############
+# CONSTANTS #
+#############
 
 DIGITS = "0123456789"
 
-############################
-# ERRORS
-############################
+##########
+# ERRORS #
+##########
 
 class Error:
     def __init__(self, pos_start, pos_end, error_name, details):
@@ -31,9 +35,9 @@ class InvalidSyntaxError(Error):
     def __init__(self, pos_start, pos_end, details=""):
         super().__init__(pos_start, pos_end, "\nOgiltig Syntax", details)
 
-############################
-# POSITION
-############################
+############
+# POSITION #
+############
 
 class Position:
     def __init__(self, idx, ln, col, fn, ftxt):
@@ -56,9 +60,9 @@ class Position:
     def copy(self):
         return Position(self.idx, self.ln, self.col, self.fn, self.ftxt)
 
-############################
-# TOKENS
-############################
+##########
+# TOKENS #
+##########
 
 TT_INT      = "INT"
 TT_FLOAT    = "FLOAT"
@@ -87,9 +91,9 @@ class Token:
         if self.value: return f"{self.type}:{self.value}"
         return f"{self.type}"
 
-############################
-# LEXER
-############################
+#########
+# LEXER #
+#########
 
 class Lexer:
     def __init__(self, fn, text):
@@ -160,9 +164,9 @@ class Lexer:
         else:
             return Token(TT_FLOAT, float(num_str), pos_start, self.pos)
         
-############################        
-# NODES
-############################
+#########     
+# NODES #
+#########
 
 class NumberNode:
     def __init__(self, tok):
@@ -180,9 +184,9 @@ class BinOpNode:
     def __repr__(self):
         return f"({self.left_node}, {self.op_tok}, {self.right_node})"
 
-############################    
-# PARSE RESULTS
-############################
+#################
+# PARSE RESULTS #
+#################
 
 class ParseResult:
     def __init__(self):
@@ -204,9 +208,9 @@ class ParseResult:
         self.error = error
         return self
 
-############################    
-# PARSER
-############################
+##########
+# PARSER #
+##########
 
 class Parser:
     def __init__(self, tokens):
@@ -266,9 +270,9 @@ class Parser:
         
         return res.success(left)
 
-############################
-# RUN
-############################
+#######
+# RUN #
+#######
 
 def run(fn, text):
     # Genarate tokens
