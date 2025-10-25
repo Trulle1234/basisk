@@ -183,6 +183,14 @@ class BinOpNode:
     
     def __repr__(self):
         return f"({self.left_node}, {self.op_tok}, {self.right_node})"
+    
+class UnaryOpNode:
+    def __init__(self, op_tok, node):
+        self.op_tok = op_tok
+        self.node = node
+
+    def __repr__(self):
+        return f"({self.op_tok}, {self.node})"
 
 #################
 # PARSE RESULTS #
@@ -238,6 +246,25 @@ class Parser:
     def factor(self):
         res = ParseResult()
         tok = self.current_tok
+
+        if tok.type in (TT_PLUS, TT_MINUS):
+            res.register(self.advance())
+            factor = res.register(self.factor())
+            if res.error: return res
+            return res.success(UnaryOpNode(tok, factor))
+        
+        if tok.type == TT_LPAREN:
+            res.register(self.advance())
+            expr = res.register(self.expr())
+            if res.error: return res
+            if self.current_tok.type == TT_RPAREN:
+                res.register(self.advance())
+                return res.success(expr)
+            else:
+                return res.failure((
+                    self.current_tok.pos_start, self.current_tok.pos_end,
+                    "Förväntade \")\""
+                ))
 
         if tok.type in (TT_INT, TT_FLOAT):
             res.register(self.advance())
