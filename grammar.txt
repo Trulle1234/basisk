@@ -1,7 +1,35 @@
-expr     : term ((PLUS│MINUS) term)*
+---------------------------------------------------------------
+
+In english / På engelska:
+
+expr     : KEYWORD:VARIABEL IDENTIFIER EQ expr
+         : term ((PLUS│MINUS) term)*
 
 term     : factor ((MUL│DIV) factor)*
 
-factor   : INT│FLOAT
-         : (PLUS│MINUS) factor
+factor   : (PLUS│MINUS) factor
+         : power
+
+power    : atom (POW factor)*
+
+atom     : INT│FLOAT│IDENTIFIER
          : LPAREN expr RPAREN
+
+---------------------------------------------------------------
+
+In swedish / På svenska:
+
+uttryck   : NYCKELORD:VARIABEL IDENTIFIKATOR LIKA uttryck
+          : term ((PLUS│MINUS) term)*
+
+term      : faktor ((GÅNGER│DELAT) faktor)*
+
+faktor    : (PLUS│MINUS) faktor
+          : potens
+
+potens    : atom (UPPHÖJT faktor)*
+
+atom      : HELTAL│DECIMALTAL│IDENTIFIKATOR
+          : VPARANTES uttryck HPARANTES
+
+---------------------------------------------------------------
