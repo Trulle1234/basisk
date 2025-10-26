@@ -106,7 +106,7 @@ TT_RPAREN    = "RPAREN"
 TT_EOF       = "EOF"
 
 KEYWORDS = [
-    "VARIABEL"
+    "VAR"
 ]
 
 class Token:
@@ -242,6 +242,14 @@ class VarAccessNode:
 
         self.pos_start = self.var_name_tok.pos_start
         self.pos_end = self.var_name_tok.pos_end
+
+class VarAssignNode:
+    def __init__(self, var_name_tok, value_node):
+        self.var_name_tok = var_name_tok
+        self.value_node = value_node
+
+        self.pos_start = self.var_name_tok.pos_start
+        self.pos_end = self.value_node.pos_end
     
 class BinOpNode:
     def __init__(self, left_node, op_tok, right_node):
@@ -383,7 +391,7 @@ class Parser:
             var_name = self.current_tok
             res.register(self.advance())
 
-            if self.current_tok != TT_EQ:
+            if self.current_tok.type != TT_EQ:
                 return res.failure(InvalidSyntaxError(
                     self.current_tok.pos_start, self.current_tok.pos_end,
                     "Förväntade \"=\""
@@ -493,6 +501,28 @@ class Context:
         self.display_name = display_name
         self.parent = parent
         self.parent_entry_pos = parent_entry_pos
+        self.symbol_table = None
+
+################
+# SYMBOL TABLE #
+################
+
+class SymbolTabele:
+    def __init__(self):
+        self.symbols = {}
+        self.parent = None
+
+    def get(self, name):
+        value = self.symbols.get(name, None)
+        if value == None and self.parent:
+            return self.parent.get(name)
+        return value
+    
+    def set(self, name, value):
+        self.symbols[name] = value
+    
+    def remove(self, name):
+        del self.symbols[name]
 
 ###############
 # INTERPRETER #
@@ -513,6 +543,30 @@ class Interpreter:
         return RTResult().succses(
             Number(node.tok.value).set_context(context).set_pos(node.pos_start, node.pos_end)
         )
+    
+    def visit_VarAccessNode(self, node, context):
+        res = RTResult()
+        var_name = node.var_name_tok.value
+        value = context.symbol_table.get(var_name)
+
+        if value is None:
+            return res.failure(RTError(
+                node.pos_start, node.pos_end,
+                f"\"{var_name}\" är inte definerad",
+                context
+            ))
+        
+        return res.succses(value)
+    
+    def visit_VarAssignNode(self, node, context):
+        res = RTResult()
+        var_name = node.var_name_tok.value
+        value = res.register(self.visit(node.value_node, context))
+        if res.error: return res
+
+        context.symbol_table.set(var_name, value)
+        return res.succses(value)
+
 
     def visit_BinOpNode(self, node, context):
         res = RTResult()
@@ -556,6 +610,9 @@ class Interpreter:
 # RUN #
 #######
 
+global_symbol_table = SymbolTabele()
+global_symbol_table.set("tom", Number(0))
+
 def run(fn, text):
     # Genarate tokens
     lexer = Lexer(fn, text)
@@ -570,6 +627,7 @@ def run(fn, text):
     # Run program
     interpreter = Interpreter()
     context = Context("<program>")
+    context.symbol_table = global_symbol_table
     result =  interpreter.visit(ast.node, context)
 
     return result.value, result.error
