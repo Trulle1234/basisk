@@ -35,6 +35,10 @@ class IllegalCharError(Error):
     def __init__(self, pos_start, pos_end, details):
         super().__init__(pos_start, pos_end, "\nOgiltigt Tecken", details)
 
+class ExpectedCharError(Error):
+    def __init__(self, pos_start, pos_end, details):
+        super().__init__(pos_start, pos_end, "\nFörväntade Tecken", details)
+
 class InvalidSyntaxError(Error):
     def __init__(self, pos_start, pos_end, details=""):
         super().__init__(pos_start, pos_end, "\nOgiltig Syntax", details)
@@ -238,7 +242,54 @@ class Lexer:
         
         tok_type = TT_KEYWORD if id_str in KEYWORDS else TT_IDENTIFER
         return Token(tok_type, id_str, pos_start, self.pos)
+    
+    def make_not_equals(self):
+        pos_start = self.pos.copy()
+        self.advance()
+
+        if self.current_char == "=":
+            self.advance()
+            return Token(TT_NE, pos_start=pos_start, pos_ened=self.pos), None
         
+        self.advance()
+        return None, ExpectedCharError(
+            pos_start, self.pos,
+            "\"=\" (efter \"!\")"
+            )
+    
+    def make_equals(self):
+        tok_type = TT_EQ
+        pos_start = self.pos.copy()
+        self.advance()
+
+        if self.current_char == "=":
+            self.advance()
+            tok_type = TT_EE
+        
+        return Token(tok_type, pos_start=pos_start, pos_end=self.pos)
+    
+    def make_less_than(self):
+        tok_type = TT_LT
+        pos_start = self.pos.copy()
+        self.advance()
+
+        if self.current_char == "=":
+            self.advance()
+            tok_type = TT_LTE
+        
+        return Token(tok_type, pos_start=pos_start, pos_end=self.pos)
+    
+    def make_greater_than(self):
+        tok_type = TT_GT
+        pos_start = self.pos.copy()
+        self.advance()
+
+        if self.current_char == "=":
+            self.advance()
+            tok_type = TT_GTE
+        
+        return Token(tok_type, pos_start=pos_start, pos_end=self.pos)
+
 #########     
 # NODES #
 #########
@@ -399,11 +450,34 @@ class Parser:
 
     def term(self):
         return self.bin_op(self.factor, (TT_MUL, TT_DIV))
+    
+    def arith_expr(self):
+        return self.bin_op(self.term, (TT_PLUS, TT_MINUS))
+    
+    def comp_expr(self):
+        res = ParseResult()
+
+        if self.current_tok.matches(TT_KEYWORD, "INTE"):
+            op_tok = self.current_tok
+            res.register_advancement()
+            self.advance()
+
+            node = res.register(self.comp_expr())
+            if res.error: return res
+            return res.success(UnaryOpNode(op_tok, node))
+        
+        node = res.register(self.bin_op(self.arith_expr, (TT_EE, TT_NE, TT_LT, TT_GT, TT_LTE, TT_GTE)))
+
+        if res.error:
+            return res.failure(InvalidSyntaxError(
+            self.current_tok.pos_start, self.current_tok.pos_end,
+            "Förväntade ett heltal, flyttal, identifierare, \"+\", \"-\", \"(\" eller \"INTE\""
+            ))
 
     def expr(self):
         res = ParseResult()
 
-        if self.current_tok.matches(TT_KEYWORD, "LÅT"):
+        if self.current_tok.matches(TT_KEYWORD, KEYWORDS[0]):
             res.register_advancement()
             self.advance()
 
@@ -429,12 +503,12 @@ class Parser:
             if res.error: return res
             return res.success(VarAssignNode(var_name, expr))
 
-        node = res.register(self.bin_op(self.term, (TT_PLUS, TT_MINUS)))
+        node = res.register(self.bin_op(self.comp_expr, ((TT_KEYWORD, "OCH"), (TT_KEYWORD, "INTE"))))
 
         if res.error: 
             return res.failure(InvalidSyntaxError(
                 self.current_tok.pos_start, self.current_tok.pos_end,
-                "Förväntade \"VAR\", heltal, flyttal, identifierare, \"+\", \"-\" eller \"(\" "
+                "Förväntade \"LÅT\", heltal, flyttal, identifierare, \"+\", \"-\" eller \"(\" "
             ))
 
         return res.success(node)
@@ -448,7 +522,7 @@ class Parser:
         left = res.register(func_a())
         if res.error: return res
 
-        while self.current_tok.type in ops:
+        while self.current_tok.type in ops or (self.current_tok.type, self.current_tok.value) in ops:
             op_tok = self.current_tok
             res.register_advancement()
             self.advance()
@@ -471,7 +545,7 @@ class RTResult:
         if res.error: self.error = res.error
         return res.value
     
-    def succses(self, value):
+    def success(self, value):
         self.value = value
         return self
     
@@ -549,7 +623,7 @@ class Context:
 # SYMBOL TABLE #
 ################
 
-class SymbolTabele:
+class SymbolTable:
     def __init__(self):
         self.symbols = {}
         self.parent = None
@@ -577,7 +651,7 @@ class Interpreter:
         return method(node, context)
     
     def no_visit_method(self, node, context):
-        raise Exception(f"Ingen \"besök_{type(node).__name__}\" medod definerad")
+        raise Exception(f"Ingen \"besök_{type(node).__name__}\" metod definerad")
     
     ############################
 
@@ -653,7 +727,7 @@ class Interpreter:
 # RUN #
 #######
 
-global_symbol_table = SymbolTabele()
+global_symbol_table = SymbolTable()
 global_symbol_table.set("tom", Number(0))
 
 def run(fn, text):

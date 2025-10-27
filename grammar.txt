@@ -2,34 +2,44 @@
 
 In english / På engelska:
 
-expr     : KEYWORD:VARIABEL IDENTIFIER EQ expr
-         : term ((PLUS│MINUS) term)*
+expr        : KEYWORD:VAR IDENTIFIER EQ expr
+            : comp-expr ((KEYWORD:AND|KEYWORD:OR) comp-expr)*
 
-term     : factor ((MUL│DIV) factor)*
+comp-expr   : NOT comp-expr
+            : arith-expr ((EE|LT|GT|LTE|GTE) arith-expr)*
 
-factor   : (PLUS│MINUS) factor
-         : power
+arith-expr  : term ((PLUS|MINUS) term)*
 
-power    : atom (POW factor)*
+term        : factor ((MUL|DIV) factor)*
 
-atom     : INT│FLOAT│IDENTIFIER
-         : LPAREN expr RPAREN
+factor      : (PLUS|MINUS) factor
+            : power
+
+power       : atom (POW factor)*
+
+atom        : INT|FLOAT|IDENTIFIER
+            : LPAREN expr RPAREN
 
 ---------------------------------------------------------------
 
 In swedish / På svenska:
 
-uttryck   : NYCKELORD:VARIABEL IDENTIFIKATOR LIKA uttryck
-          : term ((PLUS│MINUS) term)*
+uttryck        : NYCKELORD:VAR IDENTIFIKATOR LIKA uttryck
+               : jämför-uttryck ((NYCKELORD:OCH│NYCKELORD:ELLER) jämför-uttryck)*
 
-term      : faktor ((GÅNGER│DELAT) faktor)*
+jämför-uttryck : INTE jämför-uttryck
+               : arit-uttryck ((ÄR_LIKA│MINDRE│STÖRRE│MINDRE_LIKA│STÖRRE_LIKA) arit-uttryck)*
 
-faktor    : (PLUS│MINUS) faktor
-          : potens
+arit-uttryck   : term ((PLUS│MINUS) term)*
 
-potens    : atom (UPPHÖJT faktor)*
+term           : faktor ((GÅNGER│DELAT) faktor)*
 
-atom      : HELTAL│DECIMALTAL│IDENTIFIKATOR
-          : VPARANTES uttryck HPARANTES
+faktor         : (PLUS│MINUS) faktor
+               : potens
+
+potens         : atom (UPPHÖJT faktor)*
+
+atom           : HELTAL│DECIMALTAL│IDENTIFIKATOR
+               : VPARANTES uttryck HPARANTES
 
 ---------------------------------------------------------------
