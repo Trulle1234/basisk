@@ -473,6 +473,8 @@ class Parser:
             self.current_tok.pos_start, self.current_tok.pos_end,
             "Förväntade ett heltal, flyttal, identifierare, \"+\", \"-\", \"(\" eller \"INTE\""
             ))
+        
+        return res.success(node)
 
     def expr(self):
         res = ParseResult()
@@ -599,6 +601,41 @@ class Number:
         if isinstance(other, Number):
             return Number(self.value ** other.value).set_context(self.context), None
         
+    def get_comparison_eq(self, other):
+        if isinstance(other, Number):
+            return Number(int(self.value == other.value)).set_context(self.context), None
+    
+    def get_comparison_ne(self, other):
+        if isinstance(other, Number):
+            return Number(int(self.value != other.value)).set_context(self.context), None
+    
+    def get_comparison_lt(self, other):
+        if isinstance(other, Number):
+            return Number(int(self.value < other.value)).set_context(self.context), None
+        
+    def get_comparison_gt(self, other):
+        if isinstance(other, Number):
+            return Number(int(self.value > other.value)).set_context(self.context), None
+
+    def get_comparison_lte(self, other):
+        if isinstance(other, Number):
+            return Number(int(self.value <= other.value)).set_context(self.context), None
+        
+    def get_comparison_lte(self, other):
+        if isinstance(other, Number):
+            return Number(int(self.value >= other.value)).set_context(self.context), None
+    
+    def anded_by(self, other):
+        if isinstance(other, Number):
+            return Number(int(self.value and other.value)).set_context(self.context), None
+    
+    def ored_by(self, other):
+        if isinstance(other, Number):
+            return Number(int(self.value or other.value)).set_context(self.context), None
+        
+    def noted(self, other):
+        return Number(1 if self.value == 0 else 0).set_context(self.context), None
+        
     def copy(self):
         copy = Number(self.value)
         copy.set_pos(self.pos_start, self.pos_end)
@@ -656,7 +693,7 @@ class Interpreter:
     ############################
 
     def visit_NumberNode(self, node, context):
-        return RTResult().succses(
+        return RTResult().success(
             Number(node.tok.value).set_context(context).set_pos(node.pos_start, node.pos_end)
         )
     
@@ -673,7 +710,7 @@ class Interpreter:
             ))
         
         value = value.copy().set_pos(node.pos_start, node.pos_end)
-        return res.succses(value)
+        return res.success(value)
     
     def visit_VarAssignNode(self, node, context):
         res = RTResult()
@@ -682,7 +719,7 @@ class Interpreter:
         if res.error: return res
 
         context.symbol_table.set(var_name, value)
-        return res.succses(value)
+        return res.success(value)
 
 
     def visit_BinOpNode(self, node, context):
@@ -702,11 +739,29 @@ class Interpreter:
             result, error = left.dived_by(right)
         elif node.op_tok.type == TT_POW:
             result, error = left.powed_by(right)
+
+        elif node.op_tok.type == TT_EE:
+            result, error = left.get_comparison_eq(right)
+        elif node.op_tok.type == TT_NE:
+            result, error = left.get_comparison_ne(right) 
+        elif node.op_tok.type == TT_LT:
+            result, error = left.get_comparison_lt(right) 
+        elif node.op_tok.type == TT_GT:
+            result, error = left.get_comparison_gt(right) 
+        elif node.op_tok.type == TT_LTE:
+            result, error = left.get_comparison_lte(right) 
+        elif node.op_tok.type == TT_GTE:
+            result, error = left.get_comparison_gte(right)
         
+        elif node.op_tok.matches(TT_KEYWORD, "OCH"):
+            result, error = left.anded_by(right)
+        elif node.op_tok.matches(TT_KEYWORD, "ELLER"):
+            result, error = left.ored_by(right)
+
         if error:
             return res.failure(error)
         else:
-            return res.succses(result.set_pos(node.pos_start, node.pos_end))
+            return res.success(result.set_pos(node.pos_start, node.pos_end))
 
     def visit_UnaryOpNode(self, node, context):
         res = RTResult()
@@ -717,18 +772,22 @@ class Interpreter:
 
         if node.op_tok.type == TT_MINUS:
             number, error = number.multed_by(Number(-1))
+        elif node.op_tok.matches(TT_KEYWORD, "INTE"):
+            number, error = number.notted()
         
         if error:
             return res.failure(error)
         else:
-            return res.succses(number.set_pos(node.pos_start, node.pos_end))
+            return res.success(number.set_pos(node.pos_start, node.pos_end))
 
 #######
 # RUN #
 #######
 
 global_symbol_table = SymbolTable()
-global_symbol_table.set("tom", Number(0))
+global_symbol_table.set("TOM", Number(0))
+global_symbol_table.set("SANT", Number(1))
+global_symbol_table.set("FALSKT", Number(0))
 
 def run(fn, text):
     # Genarate tokens
