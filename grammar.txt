@@ -2,44 +2,68 @@
 
 In english / På engelska:
 
-expr        : KEYWORD:VAR IDENTIFIER EQ expr
-            : comp-expr ((KEYWORD:AND|KEYWORD:OR) comp-expr)*
+expr              : KEYWORD:låt IDENTIFIER EQ expr
+                    | comp-expr ((KEYWORD:och | KEYWORD:eller) comp-expr)*
 
-comp-expr   : NOT comp-expr
-            : arith-expr ((EE|LT|GT|LTE|GTE) arith-expr)*
+comp-expr         : KEYWORD:inte comp-expr
+                    | arith-expr ((EE | NE | LT | GT | LTE | GTE) arith-expr)*
 
-arith-expr  : term ((PLUS|MINUS) term)*
+arith-expr        : term ((PLUS | MINUS) term)*
 
-term        : factor ((MUL|DIV) factor)*
+term              : factor ((MUL | DIV) factor)*
 
-factor      : (PLUS|MINUS) factor
-            : power
+factor            : (PLUS | MINUS) factor
+                    | power
 
-power       : atom (POW factor)*
+power             : atom (POW factor)*
 
-atom        : INT|FLOAT|IDENTIFIER
-            : LPAREN expr RPAREN
+atom              : INT | FLOAT | IDENTIFIER
+                    | LPAREN expr RPAREN
+                    | if-expr
+                    | for-expr
+                    | while-expr
+
+if-expr           : KEYWORD:om expr KEYWORD:då expr
+                      (KEYWORD:annars_om expr KEYWORD:då expr)*
+                      (KEYWORD:annars expr)?
+
+for-expr          : KEYWORD:för IDENTIFIER EQ expr KEYWORD:till expr
+                      (KEYWORD:steg expr)? KEYWORD:då expr
+
+while-expr        : KEYWORD:medan expr KEYWORD:då expr
 
 ---------------------------------------------------------------
 
 In swedish / På svenska:
 
-uttryck        : NYCKELORD:VAR IDENTIFIKATOR LIKA uttryck
-               : jämför-uttryck ((NYCKELORD:OCH│NYCKELORD:ELLER) jämför-uttryck)*
+uttryck             : NYCKELORD:låt IDENTIFIERARE = uttryck
+                       | jämförelse-uttryck ((NYCKELORD:och | NYCKELORD:eller) jämförelse-uttryck)*
 
-jämför-uttryck : INTE jämför-uttryck
-               : arit-uttryck ((ÄR_LIKA│MINDRE│STÖRRE│MINDRE_LIKA│STÖRRE_LIKA) arit-uttryck)*
+jämförelse-uttryck  : NYCKELORD:inte jämförelse-uttryck
+                       | aritmetiskt-uttryck ((== | != | < | > | <= | >=) aritmetiskt-uttryck)*
 
-arit-uttryck   : term ((PLUS│MINUS) term)*
+aritmetiskt-uttryck : term ((+ | -) term)*
 
-term           : faktor ((GÅNGER│DELAT) faktor)*
+term                : faktor ((* | /) faktor)*
 
-faktor         : (PLUS│MINUS) faktor
-               : potens
+faktor              : (+ | -) faktor
+                       | potens
 
-potens         : atom (UPPHÖJT faktor)*
+potens              : atom (^ faktor)*
 
-atom           : HELTAL│DECIMALTAL│IDENTIFIKATOR
-               : VPARANTES uttryck HPARANTES
+atom                : HELTAL | FLYTTAL | IDENTIFIERARE
+                       | ( uttryck )
+                       | om-uttryck
+                       | för-uttryck
+                       | medan-uttryck
+
+om-uttryck          : NYCKELORD:om uttryck NYCKELORD:då uttryck
+                         (NYCKELORD:annars_om uttryck NYCKELORD:då uttryck)*
+                         (NYCKELORD:annars uttryck)?
+
+för-uttryck         : NYCKELORD:för IDENTIFIERARE = uttryck NYCKELORD:till uttryck
+                         (NYCKELORD:steg uttryck)? NYCKELORD:då uttryck
+
+medan-uttryck       : NYCKELORD:medan uttryck NYCKELORD:då uttryck
 
 ---------------------------------------------------------------

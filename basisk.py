@@ -116,10 +116,18 @@ TT_GTE       = "GTE"
 TT_EOF       = "EOF"
 
 KEYWORDS = [
-    "LÅT",
-    "OCH",
-    "ELLER",
-    "INTE"
+    "låt",
+    "och",
+    "eller",
+    "inte",
+    "om",
+    "då",
+    "annars_om",
+    "annars",
+    "för",
+    "till",
+    "steg",
+    "medan"
 ]
 
 class Token:
@@ -341,6 +349,36 @@ class UnaryOpNode:
     def __repr__(self):
         return f"({self.op_tok}, {self.node})"
 
+class IfNode:
+    def __init__(self, cases, else_case):
+        self.cases = cases
+        self.else_case = else_case
+
+        self.pos_start = self.cases[0][0].pos_start
+        if self.else_case:
+            self.pos_end = self.else_case.pos_end
+        else:
+            self.pos_end = self.cases[-1][1].pos_end
+
+class ForNode:
+    def __init__(self, var_name_tok, start_value_node, end_value_node, step_value_node, body_node):
+        self.var_name_tok = var_name_tok
+        self.start_value_node = start_value_node
+        self.end_value_node = end_value_node
+        self.step_value_node = step_value_node
+        self.body_node = body_node
+
+        self.pos_start = self.var_name_tok.pos_start
+        self.pos_end = self.body_node.pos_end
+
+class WhileNode:
+    def __init__(self, condition_node, body_node):
+        self.condition_node = condition_node
+        self.body_node = body_node
+
+        self.pos_start = self.condition_node.pos_start
+        self.pos_end = self.body_node.pos_end
+        
 #################
 # PARSE RESULTS #
 #################
@@ -397,6 +435,66 @@ class Parser:
     
     ############################
 
+    def if_expr(self):
+        res = ParseResult()
+        cases = []
+        else_case = None
+
+        if not self.current_tok.matches(TT_KEYWORD, "om"):
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end,
+                "Förväntade \"OM\""
+            ))
+        
+        res.register_advancement()
+        self.advance()
+
+        condition = res.register(self.expr())
+        if res.error: return res
+
+  
+        if not self.current_tok.matches(TT_KEYWORD, "då"):
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end,
+                "Förväntade \"DÅ\""
+            ))
+         
+        res.register_advancement()
+        self.advance()
+
+        expr = res.register(self.expr())
+        if res.error: return res
+        cases.append((condition, expr))
+
+        while self.current_tok.matches(TT_KEYWORD, "annars_om"):
+            res.register_advancement()
+            self.advance()
+
+            condition = res.register(self.expr())
+            if res.error: return res
+
+            if not self.current_tok.matches(TT_KEYWORD, "då"):
+                return res.failure(InvalidSyntaxError(
+                    self.current_tok.pos_start, self.current_tok.pos_end,
+                    "Förväntade \"DÅ\""
+                ))
+            
+            res.register_advancement()
+            self.advance()
+
+            expr = res.register(self.expr())
+            if res.error: return res
+            cases.append((condition, expr))
+        
+        if self.current_tok.matches(TT_KEYWORD, "annars"):
+            res.register_advancement()
+            self.advance()
+
+            else_case = res.register(self.expr())
+            if res.error: return res
+        
+        return res.success(IfNode(cases, else_case))
+
     def atom(self):
         res = ParseResult()
         tok = self.current_tok
@@ -426,7 +524,17 @@ class Parser:
                     self.current_tok.pos_start, self.current_tok.pos_end,
                     "Förväntade \")\""
                 ))
-            
+        
+        elif tok.matches(TT_KEYWORD, "om"):
+            if_expr = res.register(self.if_expr())
+            if res.error: return res
+            return res.success(if_expr)
+        
+        elif tok.matches(TT_KEYWORD, "FÖR"):
+            for_expr = res.register(self.for_expr())
+            if res.error: return res
+            return res.success(for_expr)
+                    
         return res.failure(InvalidSyntaxError(
             tok.pos_start, tok.pos_end,
             "Förväntade ett heltal, flyttal, identifierare, \"+\", \"-\" eller \"(\" "
@@ -457,7 +565,7 @@ class Parser:
     def comp_expr(self):
         res = ParseResult()
 
-        if self.current_tok.matches(TT_KEYWORD, "INTE"):
+        if self.current_tok.matches(TT_KEYWORD, "inte"):
             op_tok = self.current_tok
             res.register_advancement()
             self.advance()
@@ -471,7 +579,7 @@ class Parser:
         if res.error:
             return res.failure(InvalidSyntaxError(
             self.current_tok.pos_start, self.current_tok.pos_end,
-            "Förväntade ett heltal, flyttal, identifierare, \"+\", \"-\", \"(\" eller \"INTE\""
+            "Förväntade ett heltal, flyttal, identifierare, \"+\", \"-\", \"(\" eller \"inte\""
             ))
         
         return res.success(node)
@@ -505,12 +613,12 @@ class Parser:
             if res.error: return res
             return res.success(VarAssignNode(var_name, expr))
 
-        node = res.register(self.bin_op(self.comp_expr, ((TT_KEYWORD, "OCH"), (TT_KEYWORD, "INTE"))))
+        node = res.register(self.bin_op(self.comp_expr, ((TT_KEYWORD, "och"), (TT_KEYWORD, "inte"))))
 
         if res.error: 
             return res.failure(InvalidSyntaxError(
                 self.current_tok.pos_start, self.current_tok.pos_end,
-                "Förväntade \"LÅT\", heltal, flyttal, identifierare, \"+\", \"-\" eller \"(\" "
+                "Förväntade \"låt\", heltal, flyttal, identifierare, \"+\", \"-\" eller \"(\" "
             ))
 
         return res.success(node)
@@ -641,9 +749,15 @@ class Number:
         copy.set_pos(self.pos_start, self.pos_end)
         copy.set_context(self.context)
         return copy
+    
+    def is_true(self):
+        return self.value != 0
         
     def __repr__(self):
-        return str(self.value)
+        s = str(self.value)
+        if isinstance(self.value, float):
+            s = s.replace('.', ',')
+        return s
 
 ###########
 # CONTEXT #
@@ -753,9 +867,9 @@ class Interpreter:
         elif node.op_tok.type == TT_GTE:
             result, error = left.get_comparison_gte(right)
         
-        elif node.op_tok.matches(TT_KEYWORD, "OCH"):
+        elif node.op_tok.matches(TT_KEYWORD, "och"):
             result, error = left.anded_by(right)
-        elif node.op_tok.matches(TT_KEYWORD, "ELLER"):
+        elif node.op_tok.matches(TT_KEYWORD, "eller"):
             result, error = left.ored_by(right)
 
         if error:
@@ -772,22 +886,41 @@ class Interpreter:
 
         if node.op_tok.type == TT_MINUS:
             number, error = number.multed_by(Number(-1))
-        elif node.op_tok.matches(TT_KEYWORD, "INTE"):
+        elif node.op_tok.matches(TT_KEYWORD, "inte"):
             number, error = number.notted()
         
         if error:
             return res.failure(error)
         else:
             return res.success(number.set_pos(node.pos_start, node.pos_end))
+    
+    def visit_IfNode(self, node, context):
+        res = RTResult()
+
+        for condition, expr in node.cases:
+            condition_value = res.register(self.visit(condition, context))
+            if res.error: return res
+
+            if condition_value.is_true():
+                expr_value = res.register(self.visit(expr, context))
+                if res.error: return res
+                return res.success(expr_value)
+        
+        if node.else_case:
+            else_value = res.register(self.visit(node.else_case, context))
+            if res.error: return res
+            return res.success(else_value)
+        
+        return res.success(None)
 
 #######
 # RUN #
 #######
 
 global_symbol_table = SymbolTable()
-global_symbol_table.set("TOM", Number(0))
-global_symbol_table.set("SANT", Number(1))
-global_symbol_table.set("FALSKT", Number(0))
+global_symbol_table.set("tom", Number(0))
+global_symbol_table.set("sant", Number(1))
+global_symbol_table.set("falskt", Number(0))
 
 def run(fn, text):
     # Genarate tokens
