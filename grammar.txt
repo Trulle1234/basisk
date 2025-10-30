@@ -43,41 +43,41 @@ func-def          : KEYWORD:definera IDENTIFIER?
 
 In swedish / På svenska:
 
-uttryck             : NYCKELORD:låt IDENTIFIERARE = uttryck
-                       | jämförelse-uttryck ((NYCKELORD:och | NYCKELORD:eller) jämförelse-uttryck)*
+uttryck              : NYCKELORD:låt IDENTIFIERARE = uttryck
+                        | jämförelse-uttryck ((NYCKELORD:och | NYCKELORD:eller) jämförelse-uttryck)*
 
-jämförelse-uttryck  : NYCKELORD:inte jämförelse-uttryck
-                       | aritmetiskt-uttryck ((== | != | < | > | <= | >=) aritmetiskt-uttryck)*
+jämförelse-uttryck   : NYCKELORD:inte jämförelse-uttryck
+                        | aritmetiskt-uttryck ((== | != | < | > | <= | >=) aritmetiskt-uttryck)*
 
-aritmetiskt-uttryck : term ((+ | -) term)*
+aritmetiskt-uttryck  : term ((+ | -) term)*
 
-term                : faktor ((* | /) faktor)*
+term                 : faktor ((* | /) faktor)*
 
-faktor              : (+ | -) faktor
-                       | potens
+faktor               : (+ | -) faktor
+                        | potens
 
-potens              : anrop (^ faktor)*
+potens               : anrop (^ faktor)*
 
-anrop               : atom ( ( uttryck ( ; uttryck )* )? )?
+anrop                : atom ( ( uttryck ( ; uttryck )* )? )?
 
-atom                : HELTAL | FLYTTAL | IDENTIFIERARE
-                       | ( uttryck )
-                       | om-uttryck
-                       | för-uttryck
-                       | medan-uttryck
-                       | funktions-definition
+atom                 : HELTAL | FLYTTAL | IDENTIFIERARE
+                        | ( uttryck )
+                        | om-uttryck
+                        | för-uttryck
+                        | medan-uttryck
+                        | funktions-definition
 
-om-uttryck          : NYCKELORD:om uttryck NYCKELORD:då uttryck
-                         (NYCKELORD:annars_om uttryck NYCKELORD:då uttryck)*
-                         (NYCKELORD:annars uttryck)?
+om-uttryck           : NYCKELORD:om uttryck NYCKELORD:då uttryck
+                          (NYCKELORD:annars_om uttryck NYCKELORD:då uttryck)*
+                          (NYCKELORD:annars uttryck)?
 
-för-uttryck         : NYCKELORD:för IDENTIFIERARE = uttryck NYCKELORD:till uttryck
-                         (NYCKELORD:steg uttryck)? NYCKELORD:då uttryck
+för-uttryck          : NYCKELORD:för IDENTIFIERARE = uttryck NYCKELORD:till uttryck
+                          (NYCKELORD:steg uttryck)? NYCKELORD:då uttryck
 
-medan-uttryck       : NYCKELORD:medan uttryck NYCKELORD:då uttryck
+medan-uttryck        : NYCKELORD:medan uttryck NYCKELORD:då uttryck
 
 funktions-definition : NYCKELORD:definera IDENTIFIERARE?
-                         ( (IDENTIFIERARE ( ; IDENTIFIERARE )*)? )
-                         -> uttryck
+                          ( (IDENTIFIERARE ( ; IDENTIFIERARE )*)? )
+                          -> uttryck
 
 ---------------------------------------------------------------

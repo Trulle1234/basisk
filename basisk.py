@@ -95,27 +95,27 @@ class Position:
 # TOKENS #
 ##########
 
-TT_INT       = "INT"
-TT_FLOAT     = "FLOAT"
-TT_IDENTIFER = "IDENTIFIER"
-TT_KEYWORD   = "KEYWORD"
-TT_PLUS      = "PLUS"
-TT_MINUS     = "MINUS"
-TT_MUL       = "MUL"
-TT_DIV       = "DIV"
-TT_POW       = "POW"
-TT_EQ        = "EQ"
-TT_LPAREN    = "LPAREN"
-TT_RPAREN    = "RPAREN"
-TT_EE        = "EE"
-TT_NE        = "NE"
-TT_LT        = "LT"
-TT_GT        = "GT"
-TT_LTE       = "LTE"
-TT_GTE       = "GTE"
-TT_SEMI      = "SEMI"
-TT_ARROW     = "ARROW"
-TT_EOF       = "EOF"
+TT_INT        = "INT"
+TT_FLOAT      = "FLOAT"
+TT_IDENTIFIER = "IDENTIFIER"
+TT_KEYWORD    = "KEYWORD"
+TT_PLUS       = "PLUS"
+TT_MINUS      = "MINUS"
+TT_MUL        = "MUL"
+TT_DIV        = "DIV"
+TT_POW        = "POW"
+TT_EQ         = "EQ"
+TT_LPAREN     = "LPAREN"
+TT_RPAREN     = "RPAREN"
+TT_EE         = "EE"
+TT_NE         = "NE"
+TT_LT         = "LT"
+TT_GT         = "GT"
+TT_LTE        = "LTE"
+TT_GTE        = "GTE"
+TT_SEMI       = "SEMI"
+TT_ARROW      = "ARROW"
+TT_EOF        = "EOF"
 
 KEYWORDS = [
     "låt",
@@ -129,7 +129,7 @@ KEYWORDS = [
     "till",
     "steg",
     "medan",
-    "definiera"
+    "definiera",
     "då"
 ]
 
@@ -144,7 +144,7 @@ class Token:
             self.pos_end.advance()
 
         if pos_end:
-            self.pos_end = pos_end
+            self.pos_end = pos_end.copy()
     
     def matches(self, type_, value):
         return self.type == type_ and self.value == value
@@ -253,7 +253,7 @@ class Lexer:
             id_str += self.current_char
             self.advance()
         
-        tok_type = TT_KEYWORD if id_str in KEYWORDS else TT_IDENTIFER
+        tok_type = TT_KEYWORD if id_str in KEYWORDS else TT_IDENTIFIER
         return Token(tok_type, id_str, pos_start, self.pos)
     
     def make_minus_or_arrow(self):
@@ -265,7 +265,7 @@ class Lexer:
             self.advance()
             tok_type = TT_ARROW
         
-        return Token(tok_type, pos_start=pos_start, pos_ened=self.pos)
+        return Token(tok_type, pos_start=pos_start, pos_end=self.pos)
     
     def make_not_equals(self):
         pos_start = self.pos.copy()
@@ -273,13 +273,12 @@ class Lexer:
 
         if self.current_char == "=":
             self.advance()
-            return Token(TT_NE, pos_start=pos_start, pos_ened=self.pos), None
+            return Token(TT_NE, pos_start=pos_start, pos_end=self.pos), None
         
-        self.advance()
         return None, ExpectedCharError(
-            pos_start, self.pos,
-            "\"=\" (efter \"!\")"
-            )
+             pos_start, self.pos,
+             "\"=\" (efter \"!\")"
+             )
     
     def make_equals(self):
         tok_type = TT_EQ
@@ -394,6 +393,33 @@ class WhileNode:
 
         self.pos_start = self.condition_node.pos_start
         self.pos_end = self.body_node.pos_end
+
+class FuncDefNode:
+    def __init__(self, var_name_tok, arg_name_toks, body_node):
+        self.var_name_tok = var_name_tok
+        self.arg_name_toks = arg_name_toks
+        self.body_node = body_node
+
+        if self.var_name_tok:
+            self.pos_start = self.var_name_tok.pos_start
+        elif len(self.arg_name_toks) > 0:
+            self.pos_start = self.arg_name_toks[0].pos_start
+        else:
+            self.pos_start = self.body_node.pos_start
+        
+        self.pos_end = self.body_node.pos_end
+
+class CallNode:
+    def __init__(self, node_to_call, arg_nodes):
+        self.node_to_call = node_to_call
+        self.arg_nodes = arg_nodes
+
+        self.pos_start = self.node_to_call.pos_start
+
+        if len(self.arg_nodes) > 0:
+            self.pos_end = self.arg_nodes[len(self.arg_nodes) - 1].pos_end
+        else:
+            self.pos_end = self.node_to_call.pos_end  
         
 #################
 # PARSE RESULTS #
@@ -523,7 +549,7 @@ class Parser:
         res.register_advancement()
         self.advance()
 
-        if self.current_tok.type != TT_IDENTIFER:
+        if self.current_tok.type != TT_IDENTIFIER:
             return res.failure(InvalidSyntaxError(
                 self.current_tok.pos_start, self.current_tok.pos_end,
                 "Förväntade identifierare"
@@ -613,7 +639,7 @@ class Parser:
             self.advance()
             return res.success(NumberNode(tok))
         
-        elif tok.type == TT_IDENTIFER:
+        elif tok.type == TT_IDENTIFIER:
             res.register_advancement()
             self.advance()
             return res.success(VarAccessNode(tok))
@@ -647,7 +673,12 @@ class Parser:
             while_expr = res.register(self.while_expr())
             if res.error: return res
             return res.success(while_expr)
-                    
+
+        elif tok.matches(TT_KEYWORD, "definiera"):
+            while_expr = res.register(self.func_def())
+            if res.error: return res
+            return res.success(func_def)
+
         return res.failure(InvalidSyntaxError(
             tok.pos_start, tok.pos_end,
             "Förväntade ett heltal, flyttal, identifierare, \"+\", \"-\" eller \"(\" "
@@ -704,7 +735,7 @@ class Parser:
             res.register_advancement()
             self.advance()
 
-            if self.current_tok.type != TT_IDENTIFER:
+            if self.current_tok.type != TT_IDENTIFIER:
                 return res.failure(InvalidSyntaxError(
                     self.current_tok.pos_start, self.current_tok.pos_end,
                     "Förväntade en identifierare"
@@ -735,6 +766,90 @@ class Parser:
             ))
 
         return res.success(node)
+    
+    def func_def(self):
+        res = ParseResult()
+
+        if not self.current_tok.matches(TT_KEYWORD, "definiera"): 
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end,
+                "Förväntade \"definiera\""
+            ))
+        
+        res.register_advancement()
+        self.advance()
+        
+        if self.current_tok.type == TT_IDENTIFIER:
+            var_name_tok = self.current_tok
+            res.register_advancement()
+            self.advance()
+            if self.current_tok.type != TT_LPAREN:
+                return res.failure(InvalidSyntaxError(
+                    self.current_tok.pos_start, self.current_tok.pos_end,
+                    "Förväntade \"(\""
+                ))
+        else:
+            var_name_tok = None
+            if self.current_tok.type != TT_LPAREN:
+                return res.failure(InvalidSyntaxError(
+                    self.current_tok.pos_start, self.current_tok.pos_end,
+                    "Förväntade identifierare eller \"(\""
+                ))
+            
+        res.register_advancement()
+        self.advance()
+        arg_name_toks = []
+
+        if self.current_tok.type == TT_IDENTIFIER:
+            arg_name_toks.append(self.current_tok)
+            res.register_advancement()
+            self.advance()
+
+            while self.current_tok.type == TT_SEMI:
+                res.register_advancement()
+                self.advance()
+
+                if self.current_tok.type != TT_IDENTIFIER:
+                    return res.failure(InvalidSyntaxError(
+                        self.current_tok.pos_start, self.current_tok.pos_end,
+                        "Förväntade identifierare"
+                    ))
+                
+                arg_name_toks.append(self.current_tok)
+                res.register_advancement()
+                self.advance()
+
+            if self.current_tok.type != TT_RPAREN:
+                return res.failure(InvalidSyntaxError(
+                    self.current_tok.pos_start, self.current_tok.pos_end,
+                    "Förväntade \";\" eller \")\""
+                ))
+        else:
+            if self.current_tok.type != TT_RPAREN:
+                return res.failure(InvalidSyntaxError(
+                    self.current_tok.pos_start, self.current_tok.pos_end,
+                    "Förväntade \";\" eller \")\""
+                ))
+            
+            res.register_advancement()
+            self.advance()
+
+            if self.current_tok.type != TT_ARROW:
+                return res.failure(InvalidSyntaxError(
+                    self.current_tok.pos_start, self.current_tok.pos_end,
+                    "Förväntade \"->\""
+                ))
+            
+            res.register_advancement()
+            self.advance()
+            node_to_return = res.register(self.expr())
+            if res.error: return res
+
+            return res.success(FuncDefNode(
+                var_name_tok,
+                arg_name_toks,
+                node_to_return
+            ))
 
     ############################
 
