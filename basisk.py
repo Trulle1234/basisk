@@ -930,7 +930,7 @@ class Interpreter:
         if var_name in built_in_vars:
             return res.failure(RTError(
                 node.pos_start, node.pos_end,
-                f"Kan inte ändra namn på den inbyggda variablen \"{var_name}\"",
+                f"Kan inte ändra värde på den inbyggda variablen \"{var_name}\"",
                 context
             ))
 
