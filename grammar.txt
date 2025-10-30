@@ -15,13 +15,16 @@ term              : factor ((MUL | DIV) factor)*
 factor            : (PLUS | MINUS) factor
                     | power
 
-power             : atom (POW factor)*
+power             : call (POW factor)*
+
+call              : atom (LPAREN (expr (SEMI expr)*)? RPAREN)?
 
 atom              : INT | FLOAT | IDENTIFIER
                     | LPAREN expr RPAREN
                     | if-expr
                     | for-expr
                     | while-expr
+                    | func-def
 
 if-expr           : KEYWORD:om expr KEYWORD:då expr
                       (KEYWORD:annars_om expr KEYWORD:då expr)*
@@ -31,6 +34,10 @@ for-expr          : KEYWORD:för IDENTIFIER EQ expr KEYWORD:till expr
                       (KEYWORD:steg expr)? KEYWORD:då expr
 
 while-expr        : KEYWORD:medan expr KEYWORD:då expr
+
+func-def          : KEYWORD:definera IDENTIFIER?
+                      LPAREN (IDENTIFIER (SEMI IDENTIFIER)*)? RPAREN
+                      ARROW expr
 
 ---------------------------------------------------------------
 
@@ -49,13 +56,16 @@ term                : faktor ((* | /) faktor)*
 faktor              : (+ | -) faktor
                        | potens
 
-potens              : atom (^ faktor)*
+potens              : anrop (^ faktor)*
+
+anrop               : atom ( ( uttryck ( ; uttryck )* )? )?
 
 atom                : HELTAL | FLYTTAL | IDENTIFIERARE
                        | ( uttryck )
                        | om-uttryck
                        | för-uttryck
                        | medan-uttryck
+                       | funktions-definition
 
 om-uttryck          : NYCKELORD:om uttryck NYCKELORD:då uttryck
                          (NYCKELORD:annars_om uttryck NYCKELORD:då uttryck)*
@@ -65,5 +75,9 @@ för-uttryck         : NYCKELORD:för IDENTIFIERARE = uttryck NYCKELORD:till utt
                          (NYCKELORD:steg uttryck)? NYCKELORD:då uttryck
 
 medan-uttryck       : NYCKELORD:medan uttryck NYCKELORD:då uttryck
+
+funktions-definition : NYCKELORD:definera IDENTIFIERARE?
+                         ( (IDENTIFIERARE ( ; IDENTIFIERARE )*)? )
+                         -> uttryck
 
 ---------------------------------------------------------------

@@ -113,6 +113,8 @@ TT_LT        = "LT"
 TT_GT        = "GT"
 TT_LTE       = "LTE"
 TT_GTE       = "GTE"
+TT_SEMI      = "SEMI"
+TT_ARROW     = "ARROW"
 TT_EOF       = "EOF"
 
 KEYWORDS = [
@@ -121,13 +123,14 @@ KEYWORDS = [
     "eller",
     "inte",
     "om",
-    "då",
     "annars_om",
     "annars",
     "för",
     "till",
     "steg",
-    "medan"
+    "medan",
+    "definiera"
+    "då"
 ]
 
 class Token:
@@ -183,8 +186,7 @@ class Lexer:
                 tokens.append(Token(TT_PLUS, pos_start=self.pos))
                 self.advance()
             elif self.current_char == "-":
-                tokens.append(Token(TT_MINUS, pos_start=self.pos))
-                self.advance()
+                tokens.append(self.make_minus_or_arrow())
             elif self.current_char == "*":
                 tokens.append(Token(TT_MUL, pos_start=self.pos))
                 self.advance()
@@ -210,6 +212,9 @@ class Lexer:
                 tokens.append(self.make_less_than())
             elif self.current_char == ">":
                 tokens.append(self.make_greater_than())
+            elif self.current_char == ";":
+                tokens.append(Token(TT_SEMI, pos_start=self.pos))
+                self.advance()
 
             else:
                 pos_start = self.pos.copy()
@@ -250,6 +255,17 @@ class Lexer:
         
         tok_type = TT_KEYWORD if id_str in KEYWORDS else TT_IDENTIFER
         return Token(tok_type, id_str, pos_start, self.pos)
+    
+    def make_minus_or_arrow(self):
+        tok_type = TT_MINUS
+        pos_start = self.pos.copy()
+        self.advance()
+
+        if self.current_char == ">":
+            self.advance()
+            tok_type = TT_ARROW
+        
+        return Token(tok_type, pos_start=pos_start, pos_ened=self.pos)
     
     def make_not_equals(self):
         pos_start = self.pos.copy()
