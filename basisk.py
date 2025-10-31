@@ -628,6 +628,48 @@ class Parser:
         if res.error: return res
 
         return res.success(WhileNode(condition, body))
+        
+    def power(self):
+        return self.bin_op(self.call, (TT_POW, ), self.factor)
+    
+    def call(self):
+        res = ParseResult()
+        atom = res.register(self.atom())
+        if res.error: return res
+
+        if self.current_tok.type == TT_LPAREN:
+            res.register_advancement()
+            self.advance()
+            arg_nodes = []
+
+            if self.current_tok.type == TT_RPAREN:
+                res.register_advancement()
+                self.advance()
+            else:
+                arg_nodes.append(res.register(self.expr()))
+                if res.error:
+                    return res.failure(InvalidSyntaxError(
+                        self.current_tok.pos_start, self.current_tok.pos_end,
+                        "Förväntade \")\", \"låt\", \"om\", \"för\", \"medan\", \"definera\" heltal, flyttal, identifierare, \"+\", \"-\" eller \"(\" eller \"inte\""
+                    ))
+                
+                while self.current_tok.type == TT_SEMI:
+                    res.register_advancement()
+                    self.advance()
+
+                    arg_nodes.append(res.register(self.expr()))
+                    if res.error: return res
+
+                if self.current_tok.type != TT_RPAREN:  
+                    return res.failure(InvalidSyntaxError(
+                        self.current_tok.pos_start, self.current_tok.pos_end,
+                        "Förväntade \";\" eller \")\""
+                    ))
+
+                res.register_advancement()
+                self.advance()
+            return res.success(CallNode(atom, arg_nodes))
+        return res.success(atom)
 
     def atom(self):
         res = ParseResult()
@@ -684,9 +726,6 @@ class Parser:
             "Förväntade ett heltal, flyttal, identifierare, \"+\", \"-\" eller \"(\" "
         ))
     
-    def power(self):
-        return self.bin_op(self.atom, (TT_POW, ), self.factor)
-    
     def factor(self):
         res = ParseResult()
         tok = self.current_tok
@@ -722,8 +761,8 @@ class Parser:
 
         if res.error:
             return res.failure(InvalidSyntaxError(
-            self.current_tok.pos_start, self.current_tok.pos_end,
-            "Förväntade ett heltal, flyttal, identifierare, \"+\", \"-\", \"(\" eller \"inte\""
+                self.current_tok.pos_start, self.current_tok.pos_end,
+                "Förväntade ett heltal, flyttal, identifierare, \"+\", \"-\", \"(\" eller \"inte\""
             ))
         
         return res.success(node)
@@ -762,7 +801,7 @@ class Parser:
         if res.error: 
             return res.failure(InvalidSyntaxError(
                 self.current_tok.pos_start, self.current_tok.pos_end,
-                "Förväntade \"låt\", heltal, flyttal, identifierare, \"+\", \"-\" eller \"(\" "
+                "Förväntade \"låt\", \"om\", \"för\", \"medan\", \"definera\" heltal, flyttal, identifierare, \"+\", \"-\" eller \"(\" eller \"inte\""
             ))
 
         return res.success(node)
