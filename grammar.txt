@@ -19,7 +19,7 @@ power             : call (POW factor)*
 
 call              : atom (LPAREN (expr (SEMI expr)*)? RPAREN)?
 
-atom              : INT | FLOAT | IDENTIFIER
+atom              : INT | FLOAT | STRING | IDENTIFIER
                     | LPAREN expr RPAREN
                     | if-expr
                     | for-expr
@@ -60,7 +60,7 @@ potens               : anrop (^ faktor)*
 
 anrop                : atom ( ( uttryck ( ; uttryck )* )? )?
 
-atom                 : HELTAL | FLYTTAL | IDENTIFIERARE
+atom                 : HELTAL | FLYTTAL | STRÄNG | IDENTIFIERARE
                         | ( uttryck )
                         | om-uttryck
                         | för-uttryck
