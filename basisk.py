@@ -426,27 +426,30 @@ class CallNode:
 #################
 
 class ParseResult:
-    def __init__(self):
-        self.error = None
-        self.node = None
-        self.advance_count = 0
+	def __init__(self):
+		self.error = None
+		self.node = None
+		self.last_registered_advance_count = 0
+		self.advance_count = 0
 
-    def register_advancement(self):
-        self.advance_count += 1
+	def register_advancement(self):
+		self.last_registered_advance_count = 1
+		self.advance_count += 1
 
-    def register(self, res):
-        self.advance_count += res.advance_count
-        if res.error: self.error = res.error
-        return res.node
+	def register(self, res):
+		self.last_registered_advance_count = res.advance_count
+		self.advance_count += res.advance_count
+		if res.error: self.error = res.error
+		return res.node
 
-    def success(self, node):
-        self.node = node
-        return self
+	def success(self, node):
+		self.node = node
+		return self
 
-    def failure(self, error):
-        if not self.error or self.advance_count == 0:
-            self.error = error
-        return self
+	def failure(self, error):
+		if not self.error or self.last_registered_advance_count == 0:
+			self.error = error
+		return self
 
 ##########
 # PARSER #
@@ -875,25 +878,25 @@ class Parser:
                     "Förväntade \";\" eller \")\""
                 ))
             
-            res.register_advancement()
-            self.advance()
+        res.register_advancement()
+        self.advance()
 
-            if self.current_tok.type != TT_ARROW:
-                return res.failure(InvalidSyntaxError(
-                    self.current_tok.pos_start, self.current_tok.pos_end,
-                    "Förväntade \"->\""
-                ))
-            
-            res.register_advancement()
-            self.advance()
-            node_to_return = res.register(self.expr())
-            if res.error: return res
-
-            return res.success(FuncDefNode(
-                var_name_tok,
-                arg_name_toks,
-                node_to_return
+        if self.current_tok.type != TT_ARROW:
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end,
+                "Förväntade \"->\""
             ))
+        
+        res.register_advancement()
+        self.advance()
+        node_to_return = res.register(self.expr())
+        if res.error: return res
+
+        return res.success(FuncDefNode(
+            var_name_tok,
+            arg_name_toks,
+            node_to_return
+        ))
 
     ############################
 
@@ -1111,6 +1114,15 @@ class Number(Value):
         
     def notted(self):
         return Number(1 if self.value == 0 else 0).set_context(self.context), None
+    
+    def copy(self):
+        copy = Number(self.value)
+        copy.set_pos(self.pos_start, self.pos_end)
+        copy.set_context(self.context)
+        return copy
+
+    def is_true(self):
+        return self.value != 0
         
     def __repr__(self):
         return str(self.value)
@@ -1394,9 +1406,9 @@ class Interpreter:
             args.append(res.register(self.visit(arg_node, context)))
             if res.error: return res
 
-        return_value = res.register(vale_to_call.execure(args))
+        return_value = res.register(vale_to_call.execute(args))
         if res.error: return res
-        return return_value
+        return res.success(return_value)
 
 #######
 # RUN #
