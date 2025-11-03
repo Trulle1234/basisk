@@ -1244,6 +1244,10 @@ class Number(Value):
         
     def __repr__(self):
         return str(self.value)
+
+Number.null = Number(0)
+Number.false = Number(0)
+Number.true = Number(1)
     
 class String(Value):
     def __init__(self, value):
@@ -1326,6 +1330,11 @@ class List(Value):
     
     def __repr__(self):
         return f"[{"; ".join([str(x) for x in self.elements])}]"
+    
+class BaseFunction(Value):
+    def __init__(self, name):
+        super().__init__()
+        self.name = name or "<anonym>"
 
 class Function(Value):
     def __init__(self, name, body_node, arg_names):
@@ -1641,9 +1650,9 @@ built_in_vars = [
 ]
 
 global_symbol_table = SymbolTable()
-global_symbol_table.set("tom", Number(0))
-global_symbol_table.set("sant", Number(1))
-global_symbol_table.set("falskt", Number(0))
+global_symbol_table.set("tom", Number.null)
+global_symbol_table.set("sant", Number.false)
+global_symbol_table.set("falskt", Number.true)
 
 def run(fn, text):
     # Genarate tokens
