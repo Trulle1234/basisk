@@ -21,10 +21,13 @@ call              : atom (LPAREN (expr (SEMI expr)*)? RPAREN)?
 
 atom              : INT | FLOAT | STRING | IDENTIFIER
                     | LPAREN expr RPAREN
+                    | list-expr
                     | if-expr
                     | for-expr
                     | while-expr
                     | func-def
+
+list-expr         : LSQUARE (expr (SEMI expr)*)? RSQUARE
 
 if-expr           : KEYWORD:om expr KEYWORD:då expr
                       (KEYWORD:annars_om expr KEYWORD:då expr)*
@@ -62,10 +65,13 @@ anrop                : atom ( ( uttryck ( ; uttryck )* )? )?
 
 atom                 : HELTAL | FLYTTAL | STRÄNG | IDENTIFIERARE
                         | ( uttryck )
+                        | lista-uttryck
                         | om-uttryck
                         | för-uttryck
                         | medan-uttryck
                         | funktions-definition
+
+lista-uttryck        : ( ( uttryck ( ; uttryck )* )? )
 
 om-uttryck           : NYCKELORD:om uttryck NYCKELORD:då uttryck
                           (NYCKELORD:annars_om uttryck NYCKELORD:då uttryck)*
