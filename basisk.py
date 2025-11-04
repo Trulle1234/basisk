@@ -4,7 +4,8 @@
 
 import string_with_arrows
 
-import string
+import os
+import math
 
 #############
 # CONSTANTS #
@@ -1120,7 +1121,7 @@ class Value:
         return None, self.illegal_operation()
     
     def copy(self):
-        raise Exception("Ingen kopieringsmetod definerad")
+        raise Exception("Ingen kopieringsmetod definierad")
     
     def is_true(self):
         return False
@@ -1248,6 +1249,7 @@ class Number(Value):
 Number.null = Number(0)
 Number.false = Number(0)
 Number.true = Number(1)
+Number.pi = Number(math.pi)
     
 class String(Value):
     def __init__(self, value):
@@ -1323,7 +1325,7 @@ class List(Value):
                 )
             
     def copy(self):
-        copy = List(self.elements[:])
+        copy = List(self.elements)
         copy.set_pos(self.pos_start, self.pos_end)
         copy.set_context(self.context)
         return copy
@@ -1335,53 +1337,231 @@ class BaseFunction(Value):
     def __init__(self, name):
         super().__init__()
         self.name = name or "<anonym>"
-
-class Function(Value):
-    def __init__(self, name, body_node, arg_names):
-        super().__init__()
-        self.name = name or "<anonym>"
-        self.body_node = body_node
-        self.arg_names = arg_names
     
-    def execute(self, args):
-        res = RTResult()
-        interpreter = Interpreter()
+    def gen_new_context(self):
         new_context = Context(self.name, self.context, self.pos_start)
         new_context.symbol_table = SymbolTable(new_context.parent.symbol_table)
+        return new_context
+    
+    def check_args(self, arg_names, args):
+        res = RTResult()
 
-        if len(args) > len(self.arg_names):
+        if len(args) > len(arg_names):
             return res.failure(RTError(
                 self.pos_start, self.pos_end,
-                f"{len(args) - len(self.arg_names)} för många argument angivna till {self.name}",
+                f"{len(args) - len(arg_names)} för många argument angivna till {self.name}",
                 self.context
             ))
         
         if len(args) < len(self.arg_names):
             return res.failure(RTError(
                 self.pos_start, self.pos_end,
-                f"{len(self.arg_names) - len(args)} för få argument angivna till {self.name}",
+                f"{len(arg_names) - len(args)} för få argument angivna till {self.name}",
                 self.context
             ))
-        
-        for i in range(len(args)):
-            arg_name = self.arg_names[i]
-            arg_value = args[i]
-            arg_value.set_context(new_context)
-            new_context.symbol_table.set(arg_name, arg_value)
 
-        value = res.register(interpreter.visit(self.body_node, new_context))
+        res.success(None)
+
+    def populate_args(self, arg_names, args, exec_ctx):
+        for i in range(len(args)):
+            arg_name = arg_names[i]
+            arg_value = args[i]
+            arg_value.set_context(exec_ctx)
+            exec_ctx.symbol_table.set(arg_name, arg_value)
+        
+    def check_and_populate_args(self, arg_names, args, exec_etx):
+        res = RTResult()
+        res.register(self.check_args(arg_names, args))
+        if res.error: return res
+        self.populate_args(arg_names, args, exec_etx)
+        return res.success(None)
+
+class Function(BaseFunction):
+    def __init__(self, name, body_node, arg_names):
+        super().__init__(name)
+        self.body_node = body_node
+        self.arg_names = arg_names
+    
+    def execute(self, args):
+        res = RTResult()
+        interpreter = Interpreter()
+        exec_ctx = self.gen_new_context()
+
+        res.register(self.check_and_populate_args(self.arg_names, args, exec_ctx))
+
+        value = res.register(interpreter.visit(self.body_node, exec_ctx))
         if res.error: return res
         return res.success(value)
     
     def copy(self):
         copy = Function(self.name, self.body_node, self.arg_names)
         copy.set_context(self.context)
-        copy.set_context(self.context)
         copy.set_pos(self.pos_start, self.pos_end)
         return copy
     
     def __repr__(self):
         return f"<funktion {self.name}>"
+    
+class BuiltInFunction(BaseFunction):
+    def __init__(self, name):
+        super().__init__(name)
+
+    def execute(self, args):
+        res = RTResult()
+        exec_ctx = self.gen_new_context()
+
+        method_name = f"execute_{self.name}"
+        method = getattr(self, method_name, self.no_visit_method)
+
+        res.register(self.check_and_populate_args(method.arg_names, args, exec_ctx))
+        if res.error: return res
+
+        return_value = res.register(method(exec_ctx))
+        if res.error: return res
+        return res.success(return_value)
+    
+    def no_visit_method(self, node, context):
+        raise Exception(f"Ingen utför_{self.name} metod definierad")
+    
+    def copy(self):
+        copy = BuiltInFunction(self.name)
+        copy.set_context(self.context)
+        copy.set_pos(self.pos_start, self.pos_end)
+        return copy
+    
+    def __repr__(self):
+        return f"<inbyggd funktion {self.name}>"
+    
+    ############################
+
+    def execute_print(self, exec_ctx):
+        print(str(exec_ctx.symbol_table.get("value")))
+        return RTResult().success(Number.null)
+    execute_print.arg_names["value"]
+
+    def execute_print_ret(self, exec_ctx):
+        return RTResult().success(String(str(exec_ctx.symbol_table.get("value"))))
+    execute_print_ret.arg_names["value"]
+
+    def execute_input(self, exec_ctx):
+        text = input(str(exec_ctx.symbol_table.get("value")))
+        return RTResult().success(String(text))
+    execute_print_ret.arg_names["value"]  
+
+    def execute_input_int(self, exec_ctx):
+        while True:
+            text = input(str(exec_ctx.symbol_table.get("value")))
+            try:
+                number = int(text)
+                break
+            except ValueError:
+                print(f"\"{text}\" måste vara ett heltal. Försök igen!")
+        return RTResult().success(Number(number))
+    execute_print_ret.arg_names["value"]
+
+    def execute_clear(self, exec_ctx):
+        os.system("cls" if os.name == "nt" else "clear")
+        return RTResult().success(Number.null)
+    execute_clear.arg_names = []
+
+    def execute_is_number(self, exec_ctx):
+        is_number = isinstance(exec_ctx.symbol_table.get("value"), Number)
+        return RTResult().success(Number.true if is_number else Number.false)
+    execute_is_number.arg_names = ["value"]
+
+    def execute_is_string(self, exec_ctx):
+        is_number = isinstance(exec_ctx.symbol_table.get("value"), String)
+        return RTResult().success(Number.true if is_number else Number.false)
+    execute_is_number.arg_names = ["value"]
+
+    def execute_is_list(self, exec_ctx):
+        is_number = isinstance(exec_ctx.symbol_table.get("value"), List)
+        return RTResult().success(Number.true if is_number else Number.false)
+    execute_is_number.arg_names = ["value"]
+
+    def execute_is_function(self, exec_ctx):
+        is_number = isinstance(exec_ctx.symbol_table.get("value"), BaseFunction)
+        return RTResult().success(Number.true if is_number else Number.false)
+    execute_is_number.arg_names = ["value"]
+
+    def execute_append(self, exec_ctx):
+        list = exec_ctx.symbol_table.get("list")
+        value = exec_ctx.symbol_table.get("value")
+
+        if not isinstance(list, List):
+            return RTResult().failure(RTError(
+                self.pos_start, self.pos_end,
+                "Första argumentet måste vara en lista",
+                exec_ctx
+            ))
+
+        list.elements.append(value)
+        return RTResult().success(Number.null)
+    execute_append.arg_names = ["list", "value"]
+
+    def execute_pop(self, exec_ctx):
+        list = exec_ctx.symbol_table.get("list")
+        index = exec_ctx.symbol_table.get("index")
+
+        if not isinstance(list, List):
+            return RTResult().failure(RTError(
+                self.pos_start, self.pos_end,
+                "Första argumentet måste vara en lista",
+                exec_ctx
+            ))
+        
+        if not isinstance(index, Number):
+            return RTResult().failure(RTError(
+                self.pos_start, self.pos_end,
+                "Andra argumentet måste vara ett nummer",
+                exec_ctx
+            ))
+        
+        try:
+            element = list.elements.pos(index.value)
+        except:
+            return RTResult().failure(RTError(
+                self.pos_start, self.pos_end,
+                "Elementet vid detta index kunde inte tas bort från listan eftersom indexet är utanför giltigt intervall.",
+                exec_ctx
+            ))
+        return RTResult().success(element)
+    execute_pop.arg_names = ["list", "index"]
+
+    def execute_extend(self, exec_ctx):
+        list1 = exec_ctx.symbol_table.get("list1")
+        list2 = exec_ctx.symbol_table.get("list2")
+
+        if not isinstance(list1, List):
+            return RTResult().failure(RTError(
+                self.pos_start, self.pos_end,
+                "Första argumentet måste vara en lista",
+                exec_ctx
+            ))
+        
+        if not isinstance(list2, List):
+            return RTResult().failure(RTError(
+                self.pos_start, self.pos_end,
+                "Andra argumentet måste vara en lista",
+                exec_ctx
+            ))
+        
+        list1.elements.extend(list2.elements)
+        return RTResult().success(Number.null)
+    execute_extend.arg_names = ["list1", "list2"]
+
+BuiltInFunction.print       = BuiltInFunction("print")
+BuiltInFunction.print_ret   = BuiltInFunction("print_ret")
+BuiltInFunction.input       = BuiltInFunction("input")
+BuiltInFunction.input_int   = BuiltInFunction("input_int")
+BuiltInFunction.clear       = BuiltInFunction("clear")
+BuiltInFunction.is_number   = BuiltInFunction("is_number")
+BuiltInFunction.is_string   = BuiltInFunction("is_string")
+BuiltInFunction.is_list     = BuiltInFunction("is_list")
+BuiltInFunction.is_function = BuiltInFunction("is_function")
+BuiltInFunction.append      = BuiltInFunction("append")
+BuiltInFunction.pop         = BuiltInFunction("pop")
+BuiltInFunction.extend      = BuiltInFunction("extend")
 
 ###########
 # CONTEXT #
@@ -1425,8 +1605,9 @@ class Interpreter:
         method = getattr(self, method_name, self.no_visit_method)
         return method(node, context)
     
+    
     def no_visit_method(self, node, context):
-        raise Exception(f"Ingen \"besök_{type(node).__name__}\" metod definerad")
+        raise Exception(f"Ingen \"besök_{type(node).__name__}\" metod definierad")
     
     ############################
 
@@ -1464,14 +1645,14 @@ class Interpreter:
                 context
             ))
         
-        value = value.copy().set_pos(node.pos_start, node.pos_end)
+        value = value.copy().set_pos(node.pos_start, node.pos_end).set_context(context)
         return res.success(value)
     
     def visit_VarAssignNode(self, node, context):
         res = RTResult()
         var_name = node.var_name_tok.value
 
-        if var_name in built_in_vars:
+        if var_name in built_in:
             return res.failure(RTError(
                 node.pos_start, node.pos_end,
                 f"Kan inte ändra värde på den inbyggda variablen \"{var_name}\"",
@@ -1639,20 +1820,49 @@ class Interpreter:
 
         return_value = res.register(vale_to_call.execute(args))
         if res.error: return res
+        return_value = return_value.copy().set_pos(node.pos_start, node.pos_end).set_context(context)
         return res.success(return_value)
 
 #######
 # RUN #
 #######
 
-built_in_vars = [
-    "tom", "sant", "falskt"
+built_in = [
+    "tom",
+    "sant", 
+    "falskt",
+    "pi",
+    "skriv_ut",
+    "skriv_ut_returnera",
+    "inmating",
+    "inmating_heltal",
+    "töm",
+    "är_nummer",
+    "är_sträng",
+    "är_lista",
+    "är_funktion",
+    "lägg_till",
+    "ta_bort",
+    "förläng"
 ]
 
 global_symbol_table = SymbolTable()
 global_symbol_table.set("tom", Number.null)
 global_symbol_table.set("sant", Number.false)
 global_symbol_table.set("falskt", Number.true)
+global_symbol_table.set("pi", Number.pi)
+global_symbol_table.set("skriv_ut", BuiltInFunction.print)
+global_symbol_table.set("skriv_ut_returnera", BuiltInFunction.print_ret)
+global_symbol_table.set("inmating", BuiltInFunction.input)
+global_symbol_table.set("inmating_heltal", BuiltInFunction.input_int)
+global_symbol_table.set("töm", BuiltInFunction.clear)
+global_symbol_table.set("är_nummer", BuiltInFunction.is_number)
+global_symbol_table.set("är_sträng", BuiltInFunction.is_string)
+global_symbol_table.set("är_lista", BuiltInFunction.is_list)
+global_symbol_table.set("är_funktion", BuiltInFunction.is_function)
+global_symbol_table.set("lägg_till", BuiltInFunction.append)
+global_symbol_table.set("ta_bort", BuiltInFunction.pop)
+global_symbol_table.set("förläng", BuiltInFunction.extend)
 
 def run(fn, text):
     # Genarate tokens
