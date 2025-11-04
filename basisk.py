@@ -1353,14 +1353,14 @@ class BaseFunction(Value):
                 self.context
             ))
         
-        if len(args) < len(self.arg_names):
+        if len(args) < len(arg_names):
             return res.failure(RTError(
                 self.pos_start, self.pos_end,
                 f"{len(arg_names) - len(args)} för få argument angivna till {self.name}",
                 self.context
             ))
 
-        res.success(None)
+        return res.success(None)
 
     def populate_args(self, arg_names, args, exec_ctx):
         for i in range(len(args)):
@@ -1369,11 +1369,11 @@ class BaseFunction(Value):
             arg_value.set_context(exec_ctx)
             exec_ctx.symbol_table.set(arg_name, arg_value)
         
-    def check_and_populate_args(self, arg_names, args, exec_etx):
+    def check_and_populate_args(self, arg_names, args, exec_ctx):
         res = RTResult()
         res.register(self.check_args(arg_names, args))
         if res.error: return res
-        self.populate_args(arg_names, args, exec_etx)
+        self.populate_args(arg_names, args, exec_ctx)
         return res.success(None)
 
 class Function(BaseFunction):
@@ -1437,16 +1437,16 @@ class BuiltInFunction(BaseFunction):
     def execute_print(self, exec_ctx):
         print(str(exec_ctx.symbol_table.get("value")))
         return RTResult().success(Number.null)
-    execute_print.arg_names["value"]
+    execute_print.arg_names = ["value"]
 
     def execute_print_ret(self, exec_ctx):
         return RTResult().success(String(str(exec_ctx.symbol_table.get("value"))))
-    execute_print_ret.arg_names["value"]
+    execute_print_ret.arg_names = ["value"]
 
     def execute_input(self, exec_ctx):
         text = input(str(exec_ctx.symbol_table.get("value")))
         return RTResult().success(String(text))
-    execute_print_ret.arg_names["value"]  
+    execute_print_ret.arg_names = ["value"]  
 
     def execute_input_int(self, exec_ctx):
         while True:
@@ -1457,7 +1457,7 @@ class BuiltInFunction(BaseFunction):
             except ValueError:
                 print(f"\"{text}\" måste vara ett heltal. Försök igen!")
         return RTResult().success(Number(number))
-    execute_print_ret.arg_names["value"]
+    execute_print_ret.arg_names = ["value"]
 
     def execute_clear(self, exec_ctx):
         os.system("cls" if os.name == "nt" else "clear")
@@ -1810,15 +1810,15 @@ class Interpreter:
         res = RTResult()
         args = []
 
-        vale_to_call = res.register(self.visit(node.node_to_call, context))
+        value_to_call = res.register(self.visit(node.node_to_call, context))
         if res.error: return res
-        vale_to_call = vale_to_call.copy().set_pos(node.pos_start, node.pos_end)
+        value_to_call = value_to_call.copy().set_pos(node.pos_start, node.pos_end)
 
         for arg_node in node.arg_nodes:
             args.append(res.register(self.visit(arg_node, context)))
             if res.error: return res
 
-        return_value = res.register(vale_to_call.execute(args))
+        return_value = res.register(value_to_call.execute(args))
         if res.error: return res
         return_value = return_value.copy().set_pos(node.pos_start, node.pos_end).set_context(context)
         return res.success(return_value)
