@@ -119,6 +119,7 @@ TT_LTE        = "LTE"
 TT_GTE        = "GTE"
 TT_SEMI       = "SEMI"
 TT_ARROW      = "ARROW"
+TT_NEWLINE    = "NEWLINE"
 TT_EOF        = "EOF"
 
 KEYWORDS = [
@@ -134,7 +135,8 @@ KEYWORDS = [
     "steg",
     "medan",
     "definiera",
-    "då"
+    "då",
+    "sluta"
 ]
 
 class Token:
@@ -179,13 +181,13 @@ class Lexer:
         while self.current_char != None:
             if self.current_char in " \t":
                 self.advance()
-
+            elif self.current_char == "§" or self.current_char == "\n": # § is only for testing until real newline is added
+                tokens.append(Token(TT_NEWLINE, pos_start=self.pos))
+                self.advance()
             elif self.current_char in DIGITS:
                 tokens.append(self.make_number())
-
             elif self.current_char in LETTERS:
                 tokens.append(self.make_identifier())
-
             elif self.current_char == "\"":
                 tokens.append(self.make_string())
             elif self.current_char == "+":
@@ -489,30 +491,37 @@ class CallNode:
 #################
 
 class ParseResult:
-	def __init__(self):
-		self.error = None
-		self.node = None
-		self.last_registered_advance_count = 0
-		self.advance_count = 0
+    def __init__(self):
+        self.error = None
+        self.node = None
+        self.last_registered_advance_count = 0
+        self.advance_count = 0
+        self.to_reverse_count = 0
 
-	def register_advancement(self):
-		self.last_registered_advance_count = 1
-		self.advance_count += 1
+    def register_advancement(self):
+        self.last_registered_advance_count = 1
+        self.advance_count += 1
 
-	def register(self, res):
-		self.last_registered_advance_count = res.advance_count
-		self.advance_count += res.advance_count
-		if res.error: self.error = res.error
-		return res.node
+    def register(self, res):
+        self.last_registered_advance_count = res.advance_count
+        self.advance_count += res.advance_count
+        if res.error: self.error = res.error
+        return res.node
+    
+    def try_register(self, res):
+        if res.error:
+            self.to_reverse_count = res.advance_count
+            return None
+        return  self.register(res)
 
-	def success(self, node):
-		self.node = node
-		return self
+    def success(self, node):
+        self.node = node
+        return self
 
-	def failure(self, error):
-		if not self.error or self.last_registered_advance_count == 0:
-			self.error = error
-		return self
+    def failure(self, error):
+        if not self.error or self.last_registered_advance_count == 0:
+            self.error = error
+        return self
 
 ##########
 # PARSER #
@@ -526,12 +535,20 @@ class Parser:
     
     def advance(self):
         self.tok_idx += 1
-        if self.tok_idx < len(self.tokens):
-            self.current_tok = self.tokens[self.tok_idx]
+        self.update_current_tok()
         return self.current_tok
     
+    def reverse(self, amount=1):
+        self.tok_idx -= amount
+        self.update_current_tok()
+        return self.current_tok
+    
+    def update_current_tok(self):
+        if self.tok_idx >= 0 and self.tok_idx < len(self.tokens):
+            self.current_tok = self.tokens[self.tok_idx]
+    
     def parse(self):
-        res = self.expr()
+        res = self.statments()
         if not res.error and self.current_tok.type != TT_EOF:
             return res.failure(InvalidSyntaxError(
                 self.current_tok.pos_start, self.current_tok.pos_end,
@@ -888,6 +905,45 @@ class Parser:
             ))
         
         return res.success(node)
+    
+    def statments(self):
+        res = ParseResult()
+        statments = []
+        pos_start = self.current_tok.pos_start.copy()
+
+        while self.current_tok.type == TT_NEWLINE:
+            res.register_advancement()
+            self.advance()
+        
+        statment = res.register(self.expr())
+        if res.error: return res
+        statments.append(statment)
+
+        more_statments = True
+
+        while True:
+            newline_count = 0
+            while self.current_tok.type == TT_NEWLINE:
+                res.register_advancement()
+                self.advance()
+                newline_count += 1
+            if newline_count == 0:
+                more_statments = False
+            
+            if not more_statments: break
+            statment = res.try_register(self.expr())
+            if not statment:
+                self.reverse(res.to_reverse_count)
+                more_statments = False
+                continue
+            statments.append(statment)
+        
+        return res.success(ListNode(
+            statments,
+            pos_start,
+            self.current_tok.pos_end.copy()
+        ))
+            
 
     def expr(self):
         res = ParseResult()
