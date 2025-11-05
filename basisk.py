@@ -287,7 +287,7 @@ class Lexer:
                 'Oavslutad sträng'
             )
 
-        self.advance()  # advance past closing quote
+        self.advance()
         return Token(TT_STRING, string, pos_start, self.pos)
 
     def make_identifier(self):
@@ -530,8 +530,6 @@ class Parser:
             self.current_tok = self.tokens[self.tok_idx]
         return self.current_tok
     
-    ############################
-
     def parse(self):
         res = self.expr()
         if not res.error and self.current_tok.type != TT_EOF:
@@ -541,8 +539,6 @@ class Parser:
             ))
         return res
     
-    ############################
-
     def list_expr(self):
         res = ParseResult()
         elemnet_nodes = []
@@ -607,7 +603,6 @@ class Parser:
         condition = res.register(self.expr())
         if res.error: return res
 
-  
         if not self.current_tok.matches(TT_KEYWORD, "då"):
             return res.failure(InvalidSyntaxError(
                 self.current_tok.pos_start, self.current_tok.pos_end,
@@ -1017,8 +1012,6 @@ class Parser:
             node_to_return
         ))
 
-    ############################
-
     def bin_op(self, func_a, ops, func_b=None):
         if func_b == None:
             func_b = func_a
@@ -1105,7 +1098,7 @@ class Value:
     def get_comparison_lte(self, other):
         return None, self.illegal_operation(other)
         
-    def get_comparison_lte(self, other):
+    def get_comparison_gte(self, other):
         return None, self.illegal_operation(other)
     
     def anded_by(self, other):
@@ -1115,7 +1108,7 @@ class Value:
         return None, self.illegal_operation(other)
         
     def notted(self):
-        return None, self.illegal_operation(other)
+        return None, self.illegal_operation()
     
     def execute(self, args):
         return None, self.illegal_operation()
@@ -1214,14 +1207,14 @@ class Number(Value):
             return Number(int(self.value <= other.value)).set_context(self.context), None
         else:
             return None, self.illegal_operation(other)
-    
-    def get_comparison_lte(self, other):
+
+    def get_comparison_gte(self, other):
         if isinstance(other, Number):
             return Number(int(self.value >= other.value)).set_context(self.context), None
         else:
             return None, self.illegal_operation(other)
 
-    def get_comparison_gte(self, other):
+    def anded_by(self, other):
         if isinstance(other, Number):
             return Number(int(self.value and other.value)).set_context(self.context), None
         else:
@@ -1230,6 +1223,8 @@ class Number(Value):
     def ored_by(self, other):
         if isinstance(other, Number):
             return Number(int(self.value or other.value)).set_context(self.context), None
+        else:
+            return None, self.illegal_operation(other)
         
     def notted(self):
         return Number(1 if self.value == 0 else 0).set_context(self.context), None
@@ -1284,45 +1279,6 @@ class List(Value):
     def __init__(self, elements):
         super().__init__()
         self.elements = elements
-
-    def added_to(self, other):
-        new_list = self.copy()
-        new_list.elements.append(other)
-        return new_list, None
-    
-    def subbed_by(self, other):
-        if isinstance(other, Number):
-            new_list = self.copy()
-            try:
-                new_list.elements.pop(other.value)
-                return new_list
-            except:
-                return None, RTError(
-                    other.pos_start, other.pos_end,
-                    "Elementet vid detta index kunde inte tas bort från listan eftersom indexet är utanför giltigt intervall.",
-                    self.context
-                )
-        else:
-            return None, Value.illegal_operation(self, other)
-    
-    def multed_by(self, other):
-        if isinstance(other, List):
-            new_list = self.copy()
-            new_list.elements.extend(other.elements)
-            return new_list, None
-        else:
-            return None, Value.illegal_operation(self, other)
-        
-    def dived_by(self, other):
-        if isinstance(other, Number):
-            try:
-                return self.elements[other.value], None
-            except:
-                return None, RTError(
-                    other.pos_start, other.pos_end,
-                    "Elementet vid detta index kunde inte hämtas från listan eftersom indexet är utanför giltigt intervall.",
-                    self.context
-                )
             
     def copy(self):
         copy = List(self.elements)
@@ -1331,7 +1287,7 @@ class List(Value):
         return copy
     
     def __repr__(self):
-        return f"[{"; ".join([str(x) for x in self.elements])}]"
+        return f"[{'; '.join(str(x) for x in self.elements)}]"
     
 class BaseFunction(Value):
     def __init__(self, name):
@@ -1432,8 +1388,6 @@ class BuiltInFunction(BaseFunction):
     def __repr__(self):
         return f"<inbyggd funktion {self.name}>"
     
-    ############################
-
     def execute_print(self, exec_ctx):
         print(str(exec_ctx.symbol_table.get("value")))
         return RTResult().success(Number.null)
@@ -1444,20 +1398,24 @@ class BuiltInFunction(BaseFunction):
     execute_print_ret.arg_names = ["value"]
 
     def execute_input(self, exec_ctx):
-        text = input(str(exec_ctx.symbol_table.get("value")))
+        prompt_val = exec_ctx.symbol_table.get("value")
+        prompt = str(prompt_val) if prompt_val is not None else ""
+        text = input(prompt)
         return RTResult().success(String(text))
-    execute_print_ret.arg_names = ["value"]  
+    execute_input.arg_names = []
 
     def execute_input_int(self, exec_ctx):
+        prompt_val = exec_ctx.symbol_table.get("value")
+        prompt = str(prompt_val) if prompt_val is not None else ""
         while True:
-            text = input(str(exec_ctx.symbol_table.get("value")))
+            text = input(prompt)
             try:
                 number = int(text)
                 break
             except ValueError:
                 print(f"\"{text}\" måste vara ett heltal. Försök igen!")
         return RTResult().success(Number(number))
-    execute_print_ret.arg_names = ["value"]
+    execute_input_int.arg_names = []
 
     def execute_clear(self, exec_ctx):
         os.system("cls" if os.name == "nt" else "clear")
@@ -1470,19 +1428,19 @@ class BuiltInFunction(BaseFunction):
     execute_is_number.arg_names = ["value"]
 
     def execute_is_string(self, exec_ctx):
-        is_number = isinstance(exec_ctx.symbol_table.get("value"), String)
-        return RTResult().success(Number.true if is_number else Number.false)
-    execute_is_number.arg_names = ["value"]
+        is_string = isinstance(exec_ctx.symbol_table.get("value"), String)
+        return RTResult().success(Number.true if is_string else Number.false)
+    execute_is_string.arg_names = ["value"]
 
     def execute_is_list(self, exec_ctx):
-        is_number = isinstance(exec_ctx.symbol_table.get("value"), List)
-        return RTResult().success(Number.true if is_number else Number.false)
-    execute_is_number.arg_names = ["value"]
+        is_list = isinstance(exec_ctx.symbol_table.get("value"), List)
+        return RTResult().success(Number.true if is_list else Number.false)
+    execute_is_list.arg_names = ["value"]
 
     def execute_is_function(self, exec_ctx):
-        is_number = isinstance(exec_ctx.symbol_table.get("value"), BaseFunction)
-        return RTResult().success(Number.true if is_number else Number.false)
-    execute_is_number.arg_names = ["value"]
+        is_function = isinstance(exec_ctx.symbol_table.get("value"), BaseFunction)
+        return RTResult().success(Number.true if is_function else Number.false)
+    execute_is_function.arg_names = ["value"]
 
     def execute_append(self, exec_ctx):
         list = exec_ctx.symbol_table.get("list")
@@ -1518,7 +1476,7 @@ class BuiltInFunction(BaseFunction):
             ))
         
         try:
-            element = list.elements.pos(index.value)
+            element = list.elements.pop(index.value)
         except:
             return RTResult().failure(RTError(
                 self.pos_start, self.pos_end,
@@ -1550,6 +1508,35 @@ class BuiltInFunction(BaseFunction):
         return RTResult().success(Number.null)
     execute_extend.arg_names = ["list1", "list2"]
 
+    def execute_get(self, exec_ctx):
+        list = exec_ctx.symbol_table.get("list")
+        index = exec_ctx.symbol_table.get("index")
+
+        if not isinstance(list, List):
+            return RTResult().failure(RTError(
+                self.pos_start, self.pos_end,
+                "Första argumentet måste vara en lista",
+                exec_ctx
+            ))
+        
+        if not isinstance(index, Number):
+            return RTResult().failure(RTError(
+                self.pos_start, self.pos_end,
+                "Andra argumentet måste vara ett nummer",
+                exec_ctx
+            ))
+        
+        try:
+            element = list.elements[index.value]
+        except:
+            return RTResult().failure(RTError(
+                self.pos_start, self.pos_end,
+                "Elementet vid detta index kunde inte tas bort från listan eftersom indexet är utanför giltigt intervall.",
+                exec_ctx
+            ))
+        return RTResult().success(element)
+    execute_get.arg_names = ["list", "index"]
+
 BuiltInFunction.print       = BuiltInFunction("print")
 BuiltInFunction.print_ret   = BuiltInFunction("print_ret")
 BuiltInFunction.input       = BuiltInFunction("input")
@@ -1562,6 +1549,7 @@ BuiltInFunction.is_function = BuiltInFunction("is_function")
 BuiltInFunction.append      = BuiltInFunction("append")
 BuiltInFunction.pop         = BuiltInFunction("pop")
 BuiltInFunction.extend      = BuiltInFunction("extend")
+BuiltInFunction.get         = BuiltInFunction("get")
 
 ###########
 # CONTEXT #
@@ -1605,12 +1593,9 @@ class Interpreter:
         method = getattr(self, method_name, self.no_visit_method)
         return method(node, context)
     
-    
     def no_visit_method(self, node, context):
         raise Exception(f"Ingen \"besök_{type(node).__name__}\" metod definierad")
     
-    ############################
-
     def visit_NumberNode(self, node, context):
         return RTResult().success(
             Number(node.tok.value).set_context(context).set_pos(node.pos_start, node.pos_end)
@@ -1665,7 +1650,6 @@ class Interpreter:
         context.symbol_table.set(var_name, value)
         return res.success(value)
 
-
     def visit_BinOpNode(self, node, context):
         res = RTResult()
         left = res.register(self.visit(node.left_node, context))
@@ -1683,7 +1667,6 @@ class Interpreter:
             result, error = left.dived_by(right)
         elif node.op_tok.type == TT_POW:
             result, error = left.powed_by(right)
-
         elif node.op_tok.type == TT_EE:
             result, error = left.get_comparison_eq(right)
         elif node.op_tok.type == TT_NE:
@@ -1696,11 +1679,12 @@ class Interpreter:
             result, error = left.get_comparison_lte(right) 
         elif node.op_tok.type == TT_GTE:
             result, error = left.get_comparison_gte(right)
-        
         elif node.op_tok.matches(TT_KEYWORD, "och"):
             result, error = left.anded_by(right)
         elif node.op_tok.matches(TT_KEYWORD, "eller"):
             result, error = left.ored_by(right)
+        else:
+            result, error = None, None
 
         if error:
             return res.failure(error)
@@ -1782,7 +1766,7 @@ class Interpreter:
         elements = []
 
         while True:
-            condition = res.register(self.visit(node.contiton_node, context))
+            condition = res.register(self.visit(node.condition_node, context))
             if res.error: return res
 
             if not condition.is_true(): break
@@ -1793,6 +1777,7 @@ class Interpreter:
         return res.success(
             List(elements).set_context(context).set_pos(node.pos_start, node.pos_end)
         )    
+
     def visit_FuncDefNode(self, node, context):
         res = RTResult()
 
@@ -1843,13 +1828,14 @@ built_in = [
     "är_funktion",
     "lägg_till",
     "ta_bort",
-    "förläng"
+    "förläng",
+    "hämta"
 ]
 
 global_symbol_table = SymbolTable()
 global_symbol_table.set("tom", Number.null)
-global_symbol_table.set("sant", Number.false)
-global_symbol_table.set("falskt", Number.true)
+global_symbol_table.set("sant", Number.true)
+global_symbol_table.set("falskt", Number.false)
 global_symbol_table.set("pi", Number.pi)
 global_symbol_table.set("skriv_ut", BuiltInFunction.print)
 global_symbol_table.set("skriv_ut_returnera", BuiltInFunction.print_ret)
@@ -1863,19 +1849,17 @@ global_symbol_table.set("är_funktion", BuiltInFunction.is_function)
 global_symbol_table.set("lägg_till", BuiltInFunction.append)
 global_symbol_table.set("ta_bort", BuiltInFunction.pop)
 global_symbol_table.set("förläng", BuiltInFunction.extend)
+global_symbol_table.set("hämta", BuiltInFunction.get)
 
 def run(fn, text):
-    # Genarate tokens
     lexer = Lexer(fn, text)
     tokens, error = lexer.make_tokens()
     if error: return None, error
 
-    # Genarete abstract syntax tree
     parser = Parser(tokens)
     ast = parser.parse()
     if ast.error: return None, ast.error
 
-    # Run program
     interpreter = Interpreter()
     context = Context("<program>")
     context.symbol_table = global_symbol_table
