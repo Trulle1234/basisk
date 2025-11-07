@@ -1,26 +1,32 @@
 ---------------------------------------------------------------
 
 In english / På engelska:
-statements  : NEWLINE* expr (NEWLINE+ expr)* NEWLINE*
 
-expr        : KEYWORD:let IDENTIFIER EQ expr
-            | comp-expr ((KEYWORD:and | KEYWORD:or) comp-expr)*
+statements  : NEWLINE* statement (NEWLINE+ statement)* NEWLINE*
 
-comp-expr   : KEYWORD:not comp-expr
-            | arith-expr ((EE | NE | LT | GT | LTE | GTE) arith-expr)*
+statement   : KEYWORD:returnera expr?
+            | KEYWORD:fortsätt
+            | KEYWORD:avbryt
+            | expr
 
-arith-expr  : term ((PLUS | MINUS) term)*
+expr        : KEYWORD:låt IDENTIFIER EQ expr
+            | comp-expr ((KEYWORD:och|KEYWORD:eller) comp-expr)*
 
-term        : factor ((MUL | DIV) factor)*
+comp-expr   : KEYWORD:inte comp-expr
+            | arith-expr ((EE|NE|LT|GT|LTE|GTE) arith-expr)*
 
-factor      : (PLUS | MINUS) factor
-            | power
+arith-expr  : term ((PLUS|MINUS) term)*
+
+term        : factor ((MUL|DIV) factor)*
+
+factor      : (PLUS|MINUS) factor
+            : power
 
 power       : call (POW factor)*
 
 call        : atom (LPAREN (expr (SEMI expr)*)? RPAREN)?
 
-atom        : INT | FLOAT | STRING | IDENTIFIER
+atom        : INT|FLOAT|STRING|IDENTIFIER
             | LPAREN expr RPAREN
             | list-expr
             | if-expr
@@ -30,81 +36,94 @@ atom        : INT | FLOAT | STRING | IDENTIFIER
 
 list-expr   : LSQUARE (expr (SEMI expr)*)? RSQUARE
 
-if-expr     : KEYWORD:if expr KEYWORD:then expr
-            | KEYWORD:if expr KEYWORD:then NEWLINE statements KEYWORD:end
-            | KEYWORD:if expr KEYWORD:then expr
-              (KEYWORD:elif expr KEYWORD:then expr)*
-              (KEYWORD:else expr)?
-            | KEYWORD:if expr KEYWORD:then NEWLINE statements
-              (KEYWORD:elif expr NEWLINE statements)*
-              (KEYWORD:else NEWLINE statements)? KEYWORD:end
+if-expr     : KEYWORD:om expr KEYWORD:då
+              (statement if-expr-b|if-expr-c?)
+            | (NEWLINE statements KEYWORD:slut|if-expr-b|if-expr-c)
 
-for-expr    : KEYWORD:for IDENTIFIER EQ expr KEYWORD:to expr
-              (KEYWORD:step expr)? KEYWORD:then expr
-            | KEYWORD:for IDENTIFIER EQ expr KEYWORD:to expr
-              (KEYWORD:step expr)? KEYWORD:then NEWLINE statements KEYWORD:end
+if-expr-b   : KEYWORD:annars_om expr KEYWORD:då
+              (statement if-expr-b|if-expr-c?)
+            | (NEWLINE statements KEYWORD:slut|if-expr-b|if-expr-c)
 
-while-expr  : KEYWORD:while expr KEYWORD:then expr
-            | KEYWORD:while expr KEYWORD:then NEWLINE statements KEYWORD:end
+if-expr-c   : KEYWORD:annars
+              statement
+            | (NEWLINE statements KEYWORD:slut)
 
-func-def    : KEYWORD:def IDENTIFIER? LPAREN (IDENTIFIER (SEMI IDENTIFIER)*)? RPAREN
-              (ARROW statements | NEWLINE statements KEYWORD:end)
+for-expr    : KEYWORD:för IDENTIFIER EQ expr KEYWORD:till expr 
+              (KEYWORD:steg expr)? KEYWORD:då
+              statement
+            | (NEWLINE statements KEYWORD:slut)
+
+while-expr  : KEYWORD:medan expr KEYWORD:då
+              statement
+            | (NEWLINE statements KEYWORD:slut)
+
+func-def    : KEYWORD:definiera IDENTIFIER?
+              LPAREN (IDENTIFIER (SEMI IDENTIFIER)*)? RPAREN
+              (ARROW expr)
+            | (NEWLINE statements KEYWORD:slut)
 
 ---------------------------------------------------------------
 
 In swedish / På svenska:
 
-satser               : NYRAD* uttryck (NYRAD+ uttryck)* NYRAD*
+satser       : NYRAD* sats (NYRAD+ sats)* NYRAD*
 
-uttryck              : NYCKELORD:låt IDENTIFIERARE = uttryck
-                     | jämförelse ((NYCKELORD:och | NYCKELORD:eller) jämförelse)*
+sats         : NYCKELORD:returnera uttryck?
+             | NYCKELORD:fortsätt
+             | NYCKELORD:avbryt
+             | uttryck
 
-jämförelse           : NYCKELORD:inte jämförelse
-                     | aritmetik ((== | != | < | > | <= | >=) aritmetik)*
+uttryck      : NYCKELORD:låt IDENTIFIERARE LIKA uttryck
+             | jämförelse ((NYCKELORD:och|NYCKELORD:eller) jämförelse)*
 
-aritmetik            : term ((+ | -) term)*
+jämförelse   : NYCKELORD:inte jämförelse
+             | aritmetik ((LIKA_LIKA|INTE_LIKA|MINDRE|STÖRRE|MINDRE_LIKA|STÖRRE_LIKA) aritmetik)*
 
-term                 : faktor ((* | /) faktor)*
+aritmetik    : term ((PLUSTECKEN|MINUSTECKEN) term)*
 
-faktor               : (+ | -) faktor
-                     | potens
+term         : faktor ((GÅNGER|DELAT) faktor)*
 
-potens               : anrop (^ faktor)*
+faktor       : (PLUSTECKEN|MINUSTECKEN) faktor
+             | potens
 
-anrop                : atom ( ( (uttryck ( ; uttryck )*)? ) )?
+potens       : anrop (UPPHÖJT faktor)*
 
-atom                 : HELTAL | FLYTTAL | STRÄNG | IDENTIFIERARE
-                     | ( uttryck )
-                     | lista
-                     | om-uttryck
-                     | för-uttryck
-                     | medan-uttryck
-                     | funktions-definition
+anrop        : atom (PAREN_V (uttryck (SEMI uttryck)*)? PAREN_H)?
 
-lista                : [ ( uttryck ( ; uttryck )* )? ]
+atom         : HELTAL|FLYTTAL|STRÄNG|IDENTIFIERARE
+             | PAREN_V uttryck PAREN_H
+             | lista
+             | om-uttryck
+             | för-uttryck
+             | medan-uttryck
+             | funktionsdef
 
-om-uttryck           : om uttryck då uttryck
-                     | om uttryck då NYRAD satser slut
-                     | om uttryck då uttryck
-                       (annars_om uttryck då uttryck)*
-                       (annars uttryck)?
-                     | om uttryck då NYRAD satser
-                       (annars_om uttryck NYRAD satser)*
-                       (annars NYRAD satser)? slut
+lista        : HAK_V (uttryck (SEMI uttryck)*)? HAK_H
 
-för-uttryck          : för IDENTIFIERARE = uttryck till uttryck
-                       (steg uttryck)? då uttryck
-                     | för IDENTIFIERARE = uttryck till uttryck
-                       (steg uttryck)? då NYRAD satser slut
+om-uttryck   : NYCKELORD:om uttryck NYCKELORD:då
+               (sats om-uttryck-b|om-uttryck-c?)
+             | (NYRAD satser NYCKELORD:slut|om-uttryck-b|om-uttryck-c)
 
-medan-uttryck        : medan uttryck då uttryck
-                     | medan uttryck då NYRAD satser slut
+om-uttryck-b : NYCKELORD:annars_om uttryck NYCKELORD:då
+               (sats om-uttryck-b|om-uttryck-c?)
+             | (NYRAD satser NYCKELORD:slut|om-uttryck-b|om-uttryck-c)
 
-funktions-definition : definiera IDENTIFIERARE?
-                       (IDENTIFIERARE ( ; IDENTIFIERARE )*)?
-                       -> satser
-                     | definiera IDENTIFIERARE?
-                       ( (IDENTIFIERARE ( ; IDENTIFIERARE )*)? )
-                       NYRAD satser slut
+om-uttryck-c : NYCKELORD:annars
+               sats
+             | (NYRAD satser NYCKELORD:slut)
+
+för-uttryck  : NYCKELORD:för IDENTIFIERARE LIKA uttryck NYCKELORD:till uttryck
+               (NYCKELORD:steg uttryck)? NYCKELORD:då
+               sats
+             | (NYRAD satser NYCKELORD:slut)
+
+medan-uttryck: NYCKELORD:medan uttryck NYCKELORD:då
+               sats
+             | (NYRAD satser NYCKELORD:slut)
+
+funktionsdef : NYCKELORD:definiera IDENTIFIERARE?
+               PAREN_V (IDENTIFIERARE (SEMI IDENTIFIERARE)*)? PAREN_H
+               (PIL uttryck)
+             | (NYRAD satser NYCKELORD:slut)
 
 ---------------------------------------------------------------

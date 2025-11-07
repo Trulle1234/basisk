@@ -137,6 +137,9 @@ KEYWORDS = [
     "definiera",
     "då",
     "slut"
+    "returnera",
+    "fortsätt",
+    "avbryt"
 ]
 
 class Token:
@@ -484,8 +487,25 @@ class CallNode:
         if len(self.arg_nodes) > 0:
             self.pos_end = self.arg_nodes[len(self.arg_nodes) - 1].pos_end
         else:
-            self.pos_end = self.node_to_call.pos_end  
-        
+            self.pos_end = self.node_to_call.pos_end 
+
+class ReturnNode:
+    def __init__(self, node_to_return, pos_start, pos_end):
+        self.node_to_return = node_to_return
+
+        self.pos_start = pos_start
+        self.pos_end = pos_end
+
+class ContinueNode:
+    def __init__(self, pos_start, pos_end):
+        self.pos_start = pos_start
+        self.pos_end = pos_end
+
+class BreakNode:
+    def __init__(self, pos_start, pos_end):
+        self.pos_start = pos_start
+        self.pos_end = pos_end
+
 #################
 # PARSE RESULTS #
 #################
@@ -638,7 +658,7 @@ class Parser:
                         "Förväntade \"slut\""
                     ))
             else:
-                expr = res.register(self.expr())
+                expr = res.register(self.statement())
                 if res.error: return res
                 else_case = (expr, False)
 
@@ -657,11 +677,6 @@ class Parser:
             if res.error: return res
         
         return res.success((cases, else_case))
-
-    def if_expr_cases(self, case_keyword):
-        res = ParseResult()
-        cases = []
-        else_case = None
 
     def if_expr_cases(self, case_keyword):
         res = ParseResult()
@@ -705,7 +720,7 @@ class Parser:
                 cases.extend(new_cases)
 
         else:
-            expr = res.register(self.expr())
+            expr = res.register(self.statement())
             if res.error: return res
             cases.append((condition, expr, False))
 
@@ -756,7 +771,7 @@ class Parser:
 
             return res.success((WhileNode(condition, body, True)))
 
-        body = res.register(self.expr())
+        body = res.register(self.statement())
         if res.error: return res
 
         return res.success(WhileNode(condition, body, False))
@@ -843,7 +858,7 @@ class Parser:
 
             return res.success(ForNode(var_name, start_value, end_value, step_value, body, True))
 
-        body = res.register(self.expr())
+        body = res.register(self.statement())
         if res.error: return res
 
         return res.success(ForNode(var_name, start_value, end_value, step_value, body, False))
@@ -1004,7 +1019,7 @@ class Parser:
             res.register_advancement()
             self.advance()
         
-        statment = res.register(self.expr())
+        statment = res.register(self.statement())
         if res.error: return res
         statments.append(statment)
 
@@ -1020,7 +1035,7 @@ class Parser:
                 more_statments = False
             
             if not more_statments: break
-            statment = res.try_register(self.expr())
+            statment = res.try_register(self.statement())
             if not statment:
                 self.reverse(res.to_reverse_count)
                 more_statments = False
@@ -1033,11 +1048,41 @@ class Parser:
             self.current_tok.pos_end.copy()
         ))
             
+    def statement(self):
+        res = ParseResult()
+        pos_start = self.current_tok.pos_start.copy()
 
+        if self.current_tok.matches(TT_KEYWORD, "returnera"):
+            res.register_advancement()
+            self.advance()
+
+            expr = res.try_register(self.expr())
+            if not expr:
+                self.reverse(res.to_reverse_count)
+            return res.success(ReturnNode(expr, pos_start, self.current_tok.pos_start.copy()))
+        
+        if self.current_tok.matches(TT_KEYWORD, "fortsätt"):
+            res.register_advancement()
+            self.advance()
+            return res.success(ContinueNode(pos_start, self.current_tok.pos_start.copy()))
+
+        if self.current_tok.matches(TT_KEYWORD, "avbryt"):
+            res.register_advancement()
+            self.advance()
+            return res.success(BreakNode(pos_start, self.current_tok.pos_start.copy()))
+        
+        expr = res.register(self.expr())
+        if res.error:
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end,
+                "Förväntade  \"returnera\", \"fortsätt\", \"avbryt\", \"låt\", \"om\", \"för\", \"medan\", \"definiera\" heltal, flyttal, identifierare, \"+\", \"-\" eller \"(\", \"[\" eller \"inte\""
+            ))
+
+        
     def expr(self):
         res = ParseResult()
 
-        if self.current_tok.matches(TT_KEYWORD, KEYWORDS[0]):
+        if self.current_tok.matches(TT_KEYWORD, "låt"):
             res.register_advancement()
             self.advance()
 
