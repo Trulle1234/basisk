@@ -663,52 +663,58 @@ class Parser:
         cases = []
         else_case = None
 
+    def if_expr_cases(self, case_keyword):
+        res = ParseResult()
+        cases = []
+        else_case = None
+
         if not self.current_tok.matches(TT_KEYWORD, case_keyword):
             return res.failure(InvalidSyntaxError(
                 self.current_tok.pos_start, self.current_tok.pos_end,
                 f"Förväntade \"{case_keyword}\""
             ))
-        
+
         res.register_advancement()
         self.advance()
-        
-        contition = res.register(self.expr())
+        condition = res.register(self.expr())
         if res.error: return res
 
         if not self.current_tok.matches(TT_KEYWORD, "då"):
             return res.failure(InvalidSyntaxError(
                 self.current_tok.pos_start, self.current_tok.pos_end,
-                f"Förväntade \"då\""
+                "Förväntade \"då\""
             ))
-        
+
+        res.register_advancement()
+        self.advance()
+
         if self.current_tok.type == TT_NEWLINE:
             res.register_advancement()
             self.advance()
 
-            statemnts = res.register(self.statments())
+            statements = res.register(self.statments())
             if res.error: return res
-            cases.append((contition, statemnts, True))
+            cases.append((condition, statements, True))
 
             if self.current_tok.matches(TT_KEYWORD, "slut"):
                 res.register_advancement()
                 self.advance()
             else:
-                all_cases = res.register(self.if_expr_b_or_c())
+                new_cases, else_case = res.register(self.if_expr_b_or_c())
                 if res.error: return res
-                new_cases, else_case = all_cases
                 cases.extend(new_cases)
+
         else:
             expr = res.register(self.expr())
             if res.error: return res
-            cases.append((contition, expr, False))
+            cases.append((condition, expr, False))
 
-            all_cases = res.register(self.if_expr_b_or_c())
+            new_cases, else_case = res.register(self.if_expr_b_or_c())
             if res.error: return res
-            new_cases, else_case = all_cases
             cases.extend(new_cases)
-        
+
         return res.success((cases, else_case))
-    
+
     def while_expr(self):
         res = ParseResult()
 
