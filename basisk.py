@@ -184,7 +184,9 @@ class Lexer:
         while self.current_char != None:
             if self.current_char in " \t":
                 self.advance()
-            elif self.current_char == "§" or self.current_char == "\n": # § is only for testing until real newline is added
+            elif self.current_char == "#":
+                self.skip_comment()
+            elif self.current_char in "§\n":
                 tokens.append(Token(TT_NEWLINE, pos_start=self.pos))
                 self.advance()
             elif self.current_char in DIGITS:
@@ -291,7 +293,7 @@ class Lexer:
         if self.current_char != "\"":
             return None, InvalidSyntaxError(
                 pos_start, self.pos,
-                'Oavslutad sträng'
+                "Oavslutad sträng"
             )
 
         self.advance()
@@ -364,6 +366,14 @@ class Lexer:
             tok_type = TT_GTE
         
         return Token(tok_type, pos_start=pos_start, pos_end=self.pos)
+    
+    def skip_comment(self):
+        self.advance()
+
+        while self.current_char != "\n":
+            self.advance()
+        
+        self.advance()
 
 #########     
 # NODES #
@@ -616,8 +626,8 @@ class Parser:
                     "Förväntade \";\" eller \"]\""
                 ))
 
-            res.register_advancement()
-            self.advance()
+                res.register_advancement()
+                self.advance()
         
         return res.success(ListNode(
             elemnet_nodes,
@@ -1174,7 +1184,7 @@ class Parser:
                 res.register_advancement()
                 self.advance()
 
-            if self.current_tok.type != TT_RPAREN:
+            if self.current_tok.type != TT_RPAREN:  
                 return res.failure(InvalidSyntaxError(
                     self.current_tok.pos_start, self.current_tok.pos_end,
                     "Förväntade \";\" eller \")\""
@@ -1183,7 +1193,7 @@ class Parser:
             if self.current_tok.type != TT_RPAREN:
                 return res.failure(InvalidSyntaxError(
                     self.current_tok.pos_start, self.current_tok.pos_end,
-                    "Förväntade \";\" eller \")\""
+                    "Förväntade identifierare eller \")\""
                 ))
             
         res.register_advancement()
@@ -1193,8 +1203,24 @@ class Parser:
             res.register_advancement()
             self.advance()
 
-            body = res.register(self.statments())
-            if res.error: return res
+            if self.current_tok.type == TT_LPAREN:
+                res.register_advancement() 
+                self.advance()
+                
+                body = res.register(self.expr())
+                if res.error: return res
+
+                if self.current_tok.type != TT_RPAREN:
+                    return res.failure(InvalidSyntaxError(
+                        self.current_tok.pos_start, self.current_tok.pos_end,
+                        "Förväntade \")\""
+                    ))
+                
+                res.register_advancement()
+                self.advance()
+            else:
+                body = res.register(self.expr())
+                if res.error: return res
 
             return res.success(FuncDefNode(
                 var_name_tok,
@@ -1218,7 +1244,7 @@ class Parser:
         if not self.current_tok.matches(TT_KEYWORD, "avsluta"):
             return res.failure(InvalidSyntaxError(
                 self.current_tok.pos_start, self.current_tok.pos_end,
-                "Förväntade \"avsluta\""
+                "Förväntade \"slut\""
             ))
 
         res.register_advancement()
@@ -1543,10 +1569,10 @@ class List(Value):
         return copy
     
     def __str__(self):
-        return f"{'; '.join(str(x) for x in self.elements)}"
+        return "; ".join(str(x) for x in self.elements)
     
     def __repr__(self):
-        return f"[{'; '.join(str(x) for x in self.elements)}]"
+        return "[" + "; ".join(str(x) for x in self.elements) + "]"
     
 class BaseFunction(Value):
     def __init__(self, name):
@@ -1800,6 +1826,54 @@ class BuiltInFunction(BaseFunction):
         return RTResult().success(element)
     execute_get.arg_names = ["list", "index"]
 
+    def execute_len(self, exec_ctx):
+        list = exec_ctx.symbol_table.get("list")    
+
+        if not isinstance(list, List):
+            return RTResult().failure(RTError(
+                self.pos_start, self.pos_end,
+                "Argumentet måste vara en lista",
+                exec_ctx
+            ))
+
+        return RTResult().success(Number(len(list.elements)))
+    execute_len.arg_names = ["list"]
+
+    def execute_run(self, exec_ctx):
+        fn = exec_ctx.symbol_table.get("fn")
+
+        if not isinstance(fn, String):
+            return RTResult().failure(RTError(
+                self.pos_start, self.pos_end,
+                "Argumentet måste vara en sträng",
+                exec_ctx
+            ))
+        
+        fn = fn.value
+
+        try:
+            with open(fn, "r", encoding="utf-8") as f:
+                script = f.read()
+        except Exception as e:
+            return RTResult().failure(RTError(
+                self.pos_start, self.pos_end,
+                f"Misslyckades med att ladda skriptet \"{fn}\"" + str(e),
+                exec_ctx
+            ))
+        
+        _, error = run(fn, script)
+
+        if error:
+            return RTResult().failure(RTError(
+                self.pos_start, self.pos_end,
+                f"Misslyckades med att avsluta utförandet skriptet \"{fn}\"" +
+                error.as_string(),
+                exec_ctx
+            ))
+
+        return RTResult().success(Number.null)
+    execute_run.arg_names = ["fn"]
+
 BuiltInFunction.print       = BuiltInFunction("print")
 BuiltInFunction.print_ret   = BuiltInFunction("print_ret")
 BuiltInFunction.input       = BuiltInFunction("input")
@@ -1813,6 +1887,8 @@ BuiltInFunction.append      = BuiltInFunction("append")
 BuiltInFunction.pop         = BuiltInFunction("pop")
 BuiltInFunction.extend      = BuiltInFunction("extend")
 BuiltInFunction.get         = BuiltInFunction("get")
+BuiltInFunction.len         = BuiltInFunction("len")
+BuiltInFunction.run         = BuiltInFunction("run")
 
 ###########
 # CONTEXT #
@@ -2154,6 +2230,8 @@ global_symbol_table.set("lägg_till", BuiltInFunction.append)
 global_symbol_table.set("ta_bort", BuiltInFunction.pop)
 global_symbol_table.set("förläng", BuiltInFunction.extend)
 global_symbol_table.set("hämta", BuiltInFunction.get)
+global_symbol_table.set("längd_av", BuiltInFunction.len)
+global_symbol_table.set("kör", BuiltInFunction.run)
 
 def run(fn, text):
     lexer = Lexer(fn, text)
