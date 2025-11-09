@@ -1244,7 +1244,7 @@ class Parser:
         if not self.current_tok.matches(TT_KEYWORD, "avsluta"):
             return res.failure(InvalidSyntaxError(
                 self.current_tok.pos_start, self.current_tok.pos_end,
-                "Förväntade \"slut\""
+                "Förväntade \"avsluta\""
             ))
 
         res.register_advancement()
@@ -1612,7 +1612,7 @@ class BaseFunction(Value):
         
     def check_and_populate_args(self, arg_names, args, exec_ctx):
         res = RTResult()
-        res.register(self.check_args(arg_names, args, exec_ctx))
+        res.register(self.check_args(arg_names, args))
         if res.should_return(): return res
         self.populate_args(arg_names, args, exec_ctx)
         return res.success(None)
