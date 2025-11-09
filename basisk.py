@@ -1612,7 +1612,7 @@ class BaseFunction(Value):
         
     def check_and_populate_args(self, arg_names, args, exec_ctx):
         res = RTResult()
-        res.register(self.check_args(arg_names, args))
+        res.register(self.check_args(arg_names, args, exec_ctx))
         if res.should_return(): return res
         self.populate_args(arg_names, args, exec_ctx)
         return res.success(None)
@@ -2150,6 +2150,12 @@ class Interpreter:
         func_value = Function(func_name, body_node, arg_names, node.should_auto_return).set_context(context).set_pos(node.pos_start, node.pos_end)
 
         if node.var_name_tok:
+            if func_name in built_in:
+                return res.failure(RTError(
+                    node.pos_start, node.pos_end,
+                    f"Kan inte ändra värde på den inbyggda funktionen \"{func_name}\"",
+                    context
+                ))
             context.symbol_table.set(func_name, func_value)
 
         return res.success(func_value)
@@ -2209,7 +2215,9 @@ built_in = [
     "lägg_till",
     "ta_bort",
     "förläng",
-    "hämta"
+    "hämta",
+    "längd_av",
+    "kör"
 ]
 
 global_symbol_table = SymbolTable()
