@@ -7,6 +7,7 @@ statements  : NEWLINE* statement (NEWLINE+ statement)* NEWLINE*
 statement   : KEYWORD:returnera expr?
             | KEYWORD:fortsätt
             | KEYWORD:avbryt
+            | KEYWORD:importera
             | expr
 
 expr        : KEYWORD:låt IDENTIFIER EQ expr
@@ -71,6 +72,7 @@ satser       : NYRAD* sats (NYRAD+ sats)* NYRAD*
 sats         : NYCKELORD:returnera uttryck?
              | NYCKELORD:fortsätt
              | NYCKELORD:avbryt
+             | NYCKELORD:importera
              | uttryck
 
 uttryck      : NYCKELORD:låt IDENTIFIERARE LIKA uttryck

@@ -139,7 +139,8 @@ KEYWORDS = [
     "avsluta",
     "returnera",
     "fortsätt",
-    "avbryt"
+    "avbryt",
+    "importera"
 ]
 
 class Token:
@@ -402,6 +403,13 @@ class StringNode:
 class ListNode:
     def __init__(self, element_nodes, pos_start, pos_end):
         self.element_nodes = element_nodes
+
+        self.pos_start = pos_start
+        self.pos_end = pos_end
+
+class ImportNode:
+    def __init__(self, filename, pos_start, pos_end):
+        self.filename = filename
 
         self.pos_start = pos_start
         self.pos_end = pos_end
@@ -1083,6 +1091,21 @@ class Parser:
             self.advance()
             return res.success(BreakNode(pos_start, self.current_tok.pos_start.copy()))
         
+        if self.current_tok.matches(TT_KEYWORD, "importera"):
+            res.register_advancement()
+            self.advance()
+
+            if self.current_tok.type != TT_IDENTIFIER:
+                return res.failure(InvalidSyntaxError(
+                    self.current_tok.pos_start, self.current_tok.pos_end,
+                    "Förväntade filnamn/identifierare"
+                ))
+
+            filename = self.current_tok
+            res.register_advancement()
+            self.advance()
+            return res.success(ImportNode(filename, pos_start, self.current_tok.pos_start.copy()))
+
         expr = res.register(self.expr())
         if res.error:
             return res.failure(InvalidSyntaxError(
@@ -1956,6 +1979,11 @@ class Interpreter:
         return res.success(
             List(elements).set_context(context).set_pos(node.pos_start, node.pos_end)
         )
+    
+    def visit_ImportNode(self, node, context):
+        res = RTResult()
+
+        
     
     def visit_VarAccessNode(self, node, context):
         res = RTResult()
