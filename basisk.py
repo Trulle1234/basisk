@@ -1966,8 +1966,6 @@ class SymbolTable:
         return value
     
     def set(self, name, value):
-        if self.parent is None and name in self.symbols:
-            return False
         self.symbols[name] = value
     
     def remove(self, name):
