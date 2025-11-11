@@ -9,9 +9,7 @@ avsluta
 för i = 0 till 10 då
     skriv_ut(då_adder("Hej "))
 
-    skriv_ut(i)
-
-    om i == 10 då
+    om i == 9 då
         skriv_ut("VÄRLDEN!!!")
     avsluta
 avsluta
