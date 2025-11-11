@@ -7,6 +7,15 @@ import string_with_arrows
 import os
 import math
 
+def resolve_path(base_file, import_path):
+    base_dir = os.path.dirname(os.path.abspath(base_file)) if base_file and base_file not in ("<program>",) else os.getcwd()
+    p = import_path
+
+    if not os.path.isabs(p):
+        p = os.path.join(base_dir, p)
+
+    return os.path.abspath(p)
+
 #############
 # CONSTANTS #
 #############
@@ -65,7 +74,7 @@ class RTError(Error):
             pos = ctx.parent_entry_pos
             ctx = ctx.parent
 
-        return "Felspårning (senaste anropet sist):\n" + result
+        return "\nFelspårning (senaste anropet sist):\n" + result
 
 ############
 # POSITION #
@@ -408,8 +417,8 @@ class ListNode:
         self.pos_end = pos_end
 
 class ImportNode:
-    def __init__(self, filename, pos_start, pos_end):
-        self.filename = filename
+    def __init__(self, filepath, pos_start, pos_end):
+        self.filepath = filepath
 
         self.pos_start = pos_start
         self.pos_end = pos_end
@@ -1095,16 +1104,16 @@ class Parser:
             res.register_advancement()
             self.advance()
 
-            if self.current_tok.type != TT_IDENTIFIER:
+            if self.current_tok.type != TT_STRING:
                 return res.failure(InvalidSyntaxError(
                     self.current_tok.pos_start, self.current_tok.pos_end,
-                    "Förväntade filnamn/identifierare"
+                    "Förväntade ett filnamn/filväg som sträng"
                 ))
 
-            filename = self.current_tok
+            filepath = self.current_tok
             res.register_advancement()
             self.advance()
-            return res.success(ImportNode(filename, pos_start, self.current_tok.pos_start.copy()))
+            return res.success(ImportNode(filepath, pos_start, self.current_tok.pos_start.copy()))
 
         expr = res.register(self.expr())
         if res.error:
@@ -1923,6 +1932,23 @@ class Context:
         self.parent = parent
         self.parent_entry_pos = parent_entry_pos
         self.symbol_table = None
+        self.import_stack = []
+        self.module_cache = {}
+    
+def get_root_context(ctx):
+    while ctx.parent is not None:
+        ctx = ctx.parent
+    return ctx
+
+def make_module_context(modname, parent_ctx, entry_pos):
+    mctx = Context(f"<moduö {modname}>", parent=None, parent_entry_pos=entry_pos)
+
+    mctx.symbol_table = SymbolTable(parent=global_symbol_table)
+
+    root = get_root_context(parent_ctx)
+    mctx.import_stack = root.import_stack
+    mctx.module_cache = root.module_cache
+    return mctx
 
 ################
 # SYMBOL TABLE #
@@ -1940,10 +1966,19 @@ class SymbolTable:
         return value
     
     def set(self, name, value):
+        if self.parent is None and name in self.symbols:
+            return False
         self.symbols[name] = value
     
     def remove(self, name):
         del self.symbols[name]
+
+def extract_public_symbols(symtab):
+    exports = {}
+    for name, value in symtab.symbols.items():
+        if not name.startswith("_"):
+            exports[name] = value
+    return exports
 
 ###############
 # INTERPRETER #
@@ -1983,7 +2018,71 @@ class Interpreter:
     def visit_ImportNode(self, node, context):
         res = RTResult()
 
+        if node.filepath.type != TT_STRING:
+            return res.failure(RTError(
+                node.pos_start, node.pos_end,
+                f"Förväntade sträng för filväg, fick {node.filepath}",
+                context
+            ))
         
+        import_path_ilteral = node.filepath.value
+
+        current_file = node.pos_start.fn
+        abs_path = resolve_path(current_file, import_path_ilteral)
+
+        root = get_root_context(context)
+        if abs_path in root.import_stack:
+            return res.failure(RTError(
+                node.pos_start, node.pos_end,
+                f"Cirkulär import upptäckt för \"{abs_path}\"",
+                context
+            ))
+        
+        if abs_path in root.module_cache:
+            exports = root.module_cache[abs_path]
+
+            for name, value in exports.items():
+                context.symbol_table.set(name, value)
+            return res.success(Number.null)
+        
+        try:
+            with open(abs_path, "r", encoding="utf-8") as f:
+                src = f.read()
+        except Exception as e:
+            return res.failure(RTError(
+                node.pos_start, node.pos_end,
+                f"Kunde inte läsa filen \"{abs_path}\": {e}",
+                context
+            ))
+        
+        modname  = os.path.splitext(os.path.basename(abs_path))[0]
+        module_ctx = make_module_context(modname, context, node.pos_start)
+
+        root.import_stack.append(abs_path)
+        try:
+            lexer = Lexer(abs_path, src)
+            tokens, error = lexer.make_tokens()
+            if error: return res.failure(error)
+
+            parser = Parser(tokens)
+            ast = parser.parse()
+            if ast.error: return res.failure(ast.error)
+
+            value = self.visit(ast.node, module_ctx)
+            if value.error: return value
+
+            exports = extract_public_symbols(module_ctx.symbol_table)
+            
+            root.module_cache[abs_path] = exports
+
+            for name, value in exports.items():
+                context.symbol_table.set(name, value)
+
+        finally:
+            if abs_path in root.import_stack:
+                root.import_stack.remove(abs_path)
+
+        return res.success(Number.null)
     
     def visit_VarAccessNode(self, node, context):
         res = RTResult()
@@ -2245,7 +2344,7 @@ built_in = [
     "förläng",
     "hämta",
     "längd_av",
-    "kör"
+    "kör",
 ]
 
 global_symbol_table = SymbolTable()
@@ -2281,6 +2380,6 @@ def run(fn, text):
     interpreter = Interpreter()
     context = Context("<program>")
     context.symbol_table = global_symbol_table
-    result =  interpreter.visit(ast.node, context)
 
+    result =  interpreter.visit(ast.node, context)
     return result.value, result.error
