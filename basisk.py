@@ -38,7 +38,7 @@ class Error:
     def as_string(self):
         result = f"{self.error_name}: {self.details}\n"
         result += f"Fil: {self.pos_start.fn}, Linje: {self.pos_start.ln + 1}"
-        result += "\n\n" + string_with_arrows.string_with_arrows(self.pos_start.ftxt, self.pos_start, self.pos_end)
+        result += "\n" + string_with_arrows.string_with_arrows(self.pos_start.ftxt, self.pos_start, self.pos_end)
         return result
 
 class IllegalCharError(Error):
