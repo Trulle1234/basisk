@@ -1,10 +1,67 @@
-<h1>BASISK (Basal Användbar Svensk Instruktions- och Skriptnings-Kod)</h1>
-<br>
-<h3>BASISK is a swedish language based on BASIC</h3>
-<p>I used this tutorial to make much it:</p>
-<a href="https://www.youtube.com/playlist?list=PLZQftyCk7_SdoVexSmwy_tBgs7P0b97yD">Make YOUR OWN Programming Language in Python</a>
-<h1></h1>
-<h3>BASISK är ett svenskt språk baserat på BASIC</h3>
-<p>Jag använde denna tutorial för att skapa mycket den:</p>
-<a href="https://www.youtube.com/playlist?list=PLZQftyCk7_SdoVexSmwy_tBgs7P0b97yD">Make YOUR OWN Programming Language in Python</a>
+# BASISK (Basal Användbar Svensk Instruktions- och Skriptnings-Kod)
 
+### BASISK is a Swedish language based on BASIC
+
+I used this tutorial to make much of it:\
+https://www.youtube.com/playlist?list=PLZQftyCk7_SdoVexSmwy_tBgs7P0b97yD
+
+------------------------------------------------------------------------
+
+## Installation / Installation Guide
+
+To install and run BASISK:
+
+1.  **Clone the repository**
+
+    ``` bash
+    git clone https://github.com/Trulle1234/basisk.git
+    ```
+
+2.  **Navigate into the project folder**
+
+    ``` bash
+    cd basisk
+    ```
+
+3.  **Run BASISK**
+
+    ``` bash
+    python shell.py
+    ```
+
+BASISK only requires Python (3.x) to run --- no additional installations
+needed.
+
+------------------------------------------------------------------------
+
+### BASISK Är ett svenskt språk baserat på BASIC
+
+Jag använde denna tutorial för att skapa mycket av det:\
+https://www.youtube.com/playlist?list=PLZQftyCk7_SdoVexSmwy_tBgs7P0b97yD
+
+------------------------------------------------------------------------
+
+## Installation / Installationsguide
+
+För att installera och köra **BASISK**:
+
+1.  **Klona repot**
+
+    ``` bash
+    git clone https://github.com/Trulle1234/basisk.git
+    ```
+
+2.  **Gå in i projektmappen**
+
+    ``` bash
+    cd basisk
+    ```
+
+3.  **Kör BASISK**
+
+    ``` bash
+    python shell.py
+    ```
+
+BASISK kräver endast **Python 3.x** --- inga extra installationer
+behövs.
