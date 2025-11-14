@@ -1,7 +1,8 @@
+### This project is a part of Midnight by Hack Club (midnight.hackclub.com) ###
+
 # BASISK (Basal Användbar Svensk Instruktions- och Skriptnings-Kod)
 
 ### BASISK is a Swedish language based on BASIC
-
 I used this tutorial to make much of it:\
 https://www.youtube.com/playlist?list=PLZQftyCk7_SdoVexSmwy_tBgs7P0b97yD
 
