@@ -2019,7 +2019,7 @@ class Interpreter:
         if node.filepath.type != TT_STRING:
             return res.failure(RTError(
                 node.pos_start, node.pos_end,
-                f"Förväntade sträng för filväg, fick {node.filepath}",
+                f"Förväntade en sträng för filväg, fick {node.filepath}",
                 context
             ))
         
