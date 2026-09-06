@@ -39,29 +39,29 @@ list-expr   : LSQUARE (expr (SEMI expr)*)? RSQUARE
 
 if-expr     : KEYWORD:om expr KEYWORD:då
               (statement if-expr-b|if-expr-c?)
-            | (NEWLINE statements KEYWORD:slut|if-expr-b|if-expr-c)
+            | (NEWLINE statements KEYWORD:avsluta|if-expr-b|if-expr-c)
 
 if-expr-b   : KEYWORD:annars_om expr KEYWORD:då
               (statement if-expr-b|if-expr-c?)
-            | (NEWLINE statements KEYWORD:slut|if-expr-b|if-expr-c)
+            | (NEWLINE statements KEYWORD:avsluta|if-expr-b|if-expr-c)
 
 if-expr-c   : KEYWORD:annars
               statement
-            | (NEWLINE statements KEYWORD:slut)
+            | (NEWLINE statements KEYWORD:avsluta)
 
 for-expr    : KEYWORD:för IDENTIFIER EQ expr KEYWORD:till expr 
               (KEYWORD:steg expr)? KEYWORD:då
               statement
-            | (NEWLINE statements KEYWORD:slut)
+            | (NEWLINE statements KEYWORD:avsluta)
 
 while-expr  : KEYWORD:medan expr KEYWORD:då
               statement
-            | (NEWLINE statements KEYWORD:slut)
+            | (NEWLINE statements KEYWORD:avsluta)
 
 func-def    : KEYWORD:definiera IDENTIFIER?
               LPAREN (IDENTIFIER (SEMI IDENTIFIER)*)? RPAREN
               (ARROW expr)
-            | (NEWLINE statements KEYWORD:slut)
+            | (NEWLINE statements KEYWORD:avsluta)
 
 ---------------------------------------------------------------
 
@@ -104,28 +104,28 @@ lista        : HAK_V (uttryck (SEMI uttryck)*)? HAK_H
 
 om-uttryck   : NYCKELORD:om uttryck NYCKELORD:då
                (sats om-uttryck-b|om-uttryck-c?)
-             | (NYRAD satser NYCKELORD:slut|om-uttryck-b|om-uttryck-c)
+             | (NYRAD satser NYCKELORD:avsluta|om-uttryck-b|om-uttryck-c)
 
 om-uttryck-b : NYCKELORD:annars_om uttryck NYCKELORD:då
                (sats om-uttryck-b|om-uttryck-c?)
-             | (NYRAD satser NYCKELORD:slut|om-uttryck-b|om-uttryck-c)
+             | (NYRAD satser NYCKELORD:avsluta|om-uttryck-b|om-uttryck-c)
 
 om-uttryck-c : NYCKELORD:annars
                sats
-             | (NYRAD satser NYCKELORD:slut)
+             | (NYRAD satser NYCKELORD:avsluta)
 
 för-uttryck  : NYCKELORD:för IDENTIFIERARE LIKA uttryck NYCKELORD:till uttryck
                (NYCKELORD:steg uttryck)? NYCKELORD:då
                sats
-             | (NYRAD satser NYCKELORD:slut)
+             | (NYRAD satser NYCKELORD:avsluta)
 
 medan-uttryck: NYCKELORD:medan uttryck NYCKELORD:då
                sats
-             | (NYRAD satser NYCKELORD:slut)
+             | (NYRAD satser NYCKELORD:avsluta)
 
 funktionsdef : NYCKELORD:definiera IDENTIFIERARE?
                PAREN_V (IDENTIFIERARE (SEMI IDENTIFIERARE)*)? PAREN_H
                (PIL uttryck)
-             | (NYRAD satser NYCKELORD:slut)
+             | (NYRAD satser NYCKELORD:avsluta)
 
 ---------------------------------------------------------------
