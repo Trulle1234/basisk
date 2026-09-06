@@ -380,10 +380,11 @@ class Lexer:
     def skip_comment(self):
         self.advance()
 
-        while self.current_char != "\n":
+        while self.current_char is not None and self.current_char != "\n":
             self.advance()
-        
-        self.advance()
+
+        if self.current_char == "\n":
+            self.advance()
 
 #########     
 # NODES #
@@ -612,44 +613,53 @@ class Parser:
 
         if self.current_tok.type != TT_LSQUARE:
             return res.failure(InvalidSyntaxError(
-                self.current_tok.pos_start, self.current_tok.pos_end,
+                self.current_tok.pos_start,
+                self.current_tok.pos_end,
                 "Förväntade \"[\""
             ))
-        
+
         res.register_advancement()
         self.advance()
 
         if self.current_tok.type == TT_RSQUARE:
+            pos_end = self.current_tok.pos_end.copy()
+
             res.register_advancement()
             self.advance()
+
         else:
             elemnet_nodes.append(res.register(self.expr()))
             if res.error:
                 return res.failure(InvalidSyntaxError(
-                    self.current_tok.pos_start, self.current_tok.pos_end,
-                    "Förväntade \"(\", \"[\", \"]\", \"låt\", \"om\", \"för\", \"medan\", \"definiera\" heltal, flyttal, identifierare, \"+\", \"-\" eller \"inte\""
+                    self.current_tok.pos_start,
+                    self.current_tok.pos_end,
+                    "Förväntade ett uttryck"
                 ))
-            
+
             while self.current_tok.type == TT_SEMI:
                 res.register_advancement()
                 self.advance()
 
                 elemnet_nodes.append(res.register(self.expr()))
-                if res.error: return res
+                if res.error:
+                    return res
 
-            if self.current_tok.type != TT_RSQUARE:  
+            if self.current_tok.type != TT_RSQUARE:
                 return res.failure(InvalidSyntaxError(
-                    self.current_tok.pos_start, self.current_tok.pos_end,
+                    self.current_tok.pos_start,
+                    self.current_tok.pos_end,
                     "Förväntade \";\" eller \"]\""
                 ))
 
-                res.register_advancement()
-                self.advance()
-        
+            pos_end = self.current_tok.pos_end.copy()
+
+            res.register_advancement()
+            self.advance()
+
         return res.success(ListNode(
             elemnet_nodes,
             pos_start,
-            self.current_tok.pos_end.copy()
+            pos_end
         ))
 
     def if_expr(self):
@@ -737,25 +747,37 @@ class Parser:
             self.advance()
 
             statements = res.register(self.statments())
-            if res.error: return res
+            if res.error:
+                return res
+
             cases.append((condition, statements, True))
 
             if self.current_tok.matches(TT_KEYWORD, "avsluta"):
                 res.register_advancement()
                 self.advance()
+
+                new_cases = []
             else:
-                new_cases, else_case = res.register(self.if_expr_b_or_c())
-                if res.error: return res
-                cases.extend(new_cases)
+                all_cases = res.register(self.if_expr_b_or_c())
+                if res.error:
+                    return res
+
+                new_cases, else_case = all_cases
 
         else:
             expr = res.register(self.statement())
-            if res.error: return res
+            if res.error:
+                return res
+
             cases.append((condition, expr, False))
 
-            new_cases, else_case = res.register(self.if_expr_b_or_c())
-            if res.error: return res
-            cases.extend(new_cases)
+            all_cases = res.register(self.if_expr_b_or_c())
+            if res.error:
+                return res
+
+            new_cases, else_case = all_cases
+
+        cases.extend(new_cases)
 
         return res.success((cases, else_case))
 
@@ -1789,7 +1811,7 @@ class BuiltInFunction(BaseFunction):
                 exec_ctx
             ))
         
-        if not isinstance(index, Number):
+        if not isinstance(index, Number) or not isinstance(index.value, int):
             return RTResult().failure(RTError(
                 self.pos_start, self.pos_end,
                 "Andra argumentet måste vara ett nummer",
@@ -1840,7 +1862,7 @@ class BuiltInFunction(BaseFunction):
                 exec_ctx
             ))
         
-        if not isinstance(index, Number):
+        if not isinstance(index, Number) or not isinstance(index.value, int):
             return RTResult().failure(RTError(
                 self.pos_start, self.pos_end,
                 "Andra argumentet måste vara ett nummer",
@@ -1852,7 +1874,7 @@ class BuiltInFunction(BaseFunction):
         except:
             return RTResult().failure(RTError(
                 self.pos_start, self.pos_end,
-                "Elementet vid detta index kunde inte tas bort från listan eftersom indexet är utanför giltigt intervall.",
+                "Elementet vid detta index kunde inte hämtas från listan eftersom indexet är utanför giltigt intervall.",
                 exec_ctx
             ))
         return RTResult().success(element)
@@ -2209,6 +2231,14 @@ class Interpreter:
             step_value = Number(1)
 
         i = start_value.value
+
+        if step_value.value == 0:
+            return res.failure(RTError(
+                node.pos_start,
+                node.pos_end,
+                "Steg kan inte vara 0",
+                context
+            ))
 
         if step_value.value >= 0:
             condition = lambda: i < end_value.value
