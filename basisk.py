@@ -2359,7 +2359,7 @@ built_in = [
     "falskt",
     "pi",
     "skriv_ut",
-    "skriv_ut_returnera",
+    "till_sträng",
     "inmating",
     "inmating_heltal",
     "töm",
@@ -2381,7 +2381,7 @@ global_symbol_table.set("sant", Number.true)
 global_symbol_table.set("falskt", Number.false)
 global_symbol_table.set("pi", Number.pi)
 global_symbol_table.set("skriv_ut", BuiltInFunction.print)
-global_symbol_table.set("skriv_ut_returnera", BuiltInFunction.print_ret)
+global_symbol_table.set("till_sträng", BuiltInFunction.print_ret)
 global_symbol_table.set("inmating", BuiltInFunction.input)
 global_symbol_table.set("inmating_heltal", BuiltInFunction.input_int)
 global_symbol_table.set("töm", BuiltInFunction.clear)
