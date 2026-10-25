@@ -1572,7 +1572,7 @@ class Number(Value):
         return self.value != 0
         
     def __repr__(self):
-        return str(self.value)
+        return str(self.value).replace(".", ",")
 
 Number.null = Number(0)
 Number.false = Number(0)
